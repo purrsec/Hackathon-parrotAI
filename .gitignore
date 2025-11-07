@@ -1,0 +1,73 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.python-version
+
+# Build artifacts
+build/
+dist/
+downloads/
+.eggs/
+*.egg-info/
+pip-wheel-metadata/
+wheels/
+share/python-wheels/
+*.egg
+
+# Test, coverage, and analysis
+.coverage
+.coverage.*
+.pytest_cache/
+htmlcov/
+coverage.xml
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+.hypothesis/
+
+# Logs
+logs/
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Editors/IDE
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files (keep .env.example tracked)
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Optional local outputs
+artifacts/
+output/
+data/
+tmp/
+temp/
+recordings/
+captures/
+
+# Docker overrides (local only)
+docker-compose.override.yml
+
+
