@@ -437,6 +437,14 @@ def main() -> int:
 
         try:
             from olympe.messages import rth  # type: ignore
+            # If available, try to set RTH ending behavior to landing (instead of hovering)
+            try:
+                if hasattr(rth, "set_ending_behavior"):
+                    drone(rth.set_ending_behavior(ending_behavior="landing")).wait(_timeout=timeout_sec)
+                    log("RTH ending behavior set to 'landing'")
+            except Exception:
+                # If the command isn't supported, continue with default behavior
+                log("Could not set RTH ending behavior to 'landing' (not supported)")
             if not drone(rth.return_to_home(start=1)).wait(_timeout=timeout_sec).success():
                 log("Failed to start RTH via rth.return_to_home")
                 return False
@@ -488,6 +496,18 @@ def main() -> int:
             log("✓ RTH completed and drone landed")
         else:
             log("⚠ Drone landing status not confirmed within timeout")
+        # Optionally cut motors after landing (safe only on ground)
+        cut_flag = os.environ.get("CUT_MOTORS_ON_GROUND", "1")
+        if landed and cut_flag != "0":
+            try:
+                from olympe.messages.ardrone3.Piloting import Emergency  # type: ignore
+                # Small extra guard delay to ensure ground contact is stable
+                time.sleep(1.0)
+                log("Cutting motors (Emergency) as drone is confirmed landed...")
+                drone(Emergency()).wait(_timeout=timeout_sec)
+                log("✓ Motors cut command sent")
+            except Exception:
+                log("Could not send Emergency() to cut motors; skipping")
         return bool(landed)
 
     def step_land() -> bool:
