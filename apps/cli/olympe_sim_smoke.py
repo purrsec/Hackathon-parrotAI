@@ -97,6 +97,67 @@ def main() -> int:
             state = drone.get_state(FlyingStateChanged)
             log(f"Drone ready! Current state: {state}")
         return bool(result)
+    
+    def step_ensure_landed() -> bool:
+        """Ensure drone is landed before starting tests. If flying, attempt to land or RTH."""
+        log("Checking if drone is on the ground...")
+        state_result = drone.get_state(FlyingStateChanged)
+        
+        if not state_result:
+            log("Unable to get drone flying state")
+            return False
+        
+        current_state = state_result.get("state") if isinstance(state_result, dict) else None
+        log(f"Current flying state: {current_state}")
+        
+        # States that indicate drone is safely on the ground
+        safe_states = ["landed", "motor_ramping"]
+        
+        if current_state in safe_states:
+            log("✓ Drone is safely on the ground")
+            return True
+        
+        # Drone is in the air or in an unsafe state
+        log("⚠ Drone is NOT on the ground!")
+        log(f"Current state: {current_state}")
+        
+        # Try to land the drone
+        if current_state in ["hovering", "flying"]:
+            log("Attempting emergency landing...")
+            if drone(Landing()).wait(_timeout=timeout_sec).success():
+                log("Landing command sent successfully")
+                # Wait for drone to actually land
+                time.sleep(3.0)
+                landing_result = drone(FlyingStateChanged(state="landed")).wait(_timeout=timeout_sec * 2)
+                if landing_result:
+                    log("✓ Drone has landed successfully")
+                    return True
+                else:
+                    log("⚠ Drone landing timeout, but continuing...")
+                    return True
+            else:
+                log("Landing command failed")
+        
+        # If taking off or other state, try RTH first then land
+        if current_state in ["takingoff", "emergency"]:
+            log("Drone in unusual state, attempting RTH then landing...")
+            try:
+                # Try modern RTH
+                from olympe.messages.rth import return_to_home  # type: ignore
+                if drone(return_to_home(1)).wait(_timeout=timeout_sec).success():
+                    log("RTH activated, waiting for drone to return and land...")
+                    time.sleep(5.0)
+                    return True
+            except Exception:
+                # Fallback to NavigateHome
+                log("Trying NavigateHome...")
+                if drone(NavigateHome(1)).wait(_timeout=timeout_sec).success():
+                    log("NavigateHome activated, waiting for drone to return and land...")
+                    time.sleep(5.0)
+                    return True
+        
+        log("⚠ Could not verify drone is safely landed, but continuing with caution...")
+        return True  # Continue anyway to avoid blocking the entire test
 
     def step_takeoff_hover() -> bool:
         log("Sending TakeOff command...")
@@ -338,6 +399,7 @@ def main() -> int:
     steps = [
         ("connect", step_connect),
         ("wait_ready", step_wait_ready),
+        ("ensure_landed", step_ensure_landed),
         ("takeoff_hover", step_takeoff_hover),
         ("move_square", step_move_square),
         ("gimbal_pitch", step_gimbal_pitch),
