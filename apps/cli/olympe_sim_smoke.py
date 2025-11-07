@@ -52,7 +52,7 @@ def main() -> int:
         log(f"Olympe import failed: {exc}")
         return EXIT_IMPORT_ERROR
 
-    drone_ip = os.environ.get("DRONE_IP", "192.168.42.1")
+    drone_ip = os.environ.get("DRONE_IP", "10.202.0.1")
     timeout_sec = float(os.environ.get("SMOKE_TIMEOUT_SEC", "25"))
 
     drone = Drone(drone_ip)
@@ -91,25 +91,49 @@ def main() -> int:
 
     def step_wait_ready() -> bool:
         # Wait until landed or hovering state is known (sim warmup)
-        return bool(
-            drone(FlyingStateChanged(_policy="check")).wait(_timeout=timeout_sec)
-        )
+        log("Waiting for drone to be ready (checking flying state)...")
+        result = drone(FlyingStateChanged(_policy="check")).wait(_timeout=timeout_sec)
+        if result:
+            state = drone.get_state(FlyingStateChanged)
+            log(f"Drone ready! Current state: {state}")
+        return bool(result)
 
     def step_takeoff_hover() -> bool:
-        return bool(
-            drone(TakeOff())
-            .wait(_timeout=timeout_sec)
-            .success()
-            and drone(FlyingStateChanged(state="hovering")).wait(_timeout=timeout_sec).success()
-        )
+        log("Sending TakeOff command...")
+        takeoff_result = drone(TakeOff()).wait(_timeout=timeout_sec).success()
+        if not takeoff_result:
+            log("TakeOff command failed!")
+            return False
+        log("TakeOff command sent successfully")
+        
+        log("Waiting for hovering state...")
+        hover_result = drone(FlyingStateChanged(state="hovering")).wait(_timeout=timeout_sec).success()
+        if hover_result:
+            log("Drone is now hovering!")
+        else:
+            log("Failed to reach hovering state")
+        return bool(hover_result)
 
     def step_move_square() -> bool:
-        # 1m forward, yaw 90°, repeat 4 times -> small square
-        for _ in range(4):
-            if not drone(moveBy(1.0, 0.0, 0.0, 0.0)).wait(_timeout=timeout_sec).success():
+        # 5m forward, yaw 90°, repeat 4 times -> 5m x 5m square
+        move_distance = 5.0  # meters
+        turn_angle = 1.5708  # 90° in radians
+        
+        log(f"Starting square pattern: {move_distance}m sides")
+        for i in range(4):
+            log(f"Side {i+1}/4: Moving forward {move_distance}m...")
+            if not drone(moveBy(move_distance, 0.0, 0.0, 0.0)).wait(_timeout=timeout_sec).success():
+                log(f"Failed to complete forward movement on side {i+1}")
                 return False
-            if not drone(moveBy(0.0, 0.0, 0.0, 1.5708)).wait(_timeout=timeout_sec).success():
+            log(f"Side {i+1}/4: Forward movement completed")
+            
+            log(f"Side {i+1}/4: Turning 90° right...")
+            if not drone(moveBy(0.0, 0.0, 0.0, turn_angle)).wait(_timeout=timeout_sec).success():
+                log(f"Failed to complete turn on side {i+1}")
                 return False
+            log(f"Side {i+1}/4: Turn completed")
+        
+        log("Square pattern completed!")
         # Ensure last moveBy completed with an event (if available)
         if moveByEnd is not None:
             return bool(drone(moveByEnd(_policy="check")).wait(_timeout=timeout_sec))
@@ -119,8 +143,10 @@ def main() -> int:
         try:
             from olympe.messages.gimbal import set_target, attitude  # type: ignore
         except Exception:
-            log("gimbal feature not available; skipping")
+            log("Gimbal feature not available; skipping")
             return True
+        
+        log("Setting gimbal pitch to -10° (looking down)...")
         ok = drone(
             set_target(
                 control_mode="position",
@@ -133,25 +159,34 @@ def main() -> int:
             )
         ).wait(_timeout=timeout_sec)
         if not ok:
+            log("Failed to set gimbal target")
             return False
+        log("Gimbal position set successfully")
+        
         # check we received an attitude event recently
-        return bool(drone(attitude(_policy="check")).wait(_timeout=timeout_sec))
+        result = drone(attitude(_policy="check")).wait(_timeout=timeout_sec)
+        if result:
+            log("Gimbal attitude updated")
+        return bool(result)
 
     def step_poi_start_stop() -> bool:
         # Start a POI piloting around current position (sim must have GPS position)
         try:
             from olympe.messages.poi import start as poi_start, stop as poi_stop  # type: ignore
         except Exception:
-            log("poi feature not available; skipping")
+            log("POI feature not available; skipping")
             return True
 
+        log("Getting current GPS position...")
         pos = drone.get_state(PositionChanged)
         lat = pos.get("latitude") if isinstance(pos, dict) else None
         lon = pos.get("longitude") if isinstance(pos, dict) else None
         alt = pos.get("altitude") if isinstance(pos, dict) else None
         if lat is None or lon is None or alt is None:
-            log("no valid GPS position; skipping poi")
+            log("No valid GPS position; skipping POI test")
             return True
+        
+        log(f"Current position: lat={lat:.6f}, lon={lon:.6f}, alt={alt:.2f}m")
 
         attempts = [
             {"latitude": lat, "longitude": lon, "altitude": alt, "radius": 10.0, "clockwise": True},
@@ -160,22 +195,32 @@ def main() -> int:
         ]
 
         started = False
-        for kwargs in attempts:
+        for idx, kwargs in enumerate(attempts):
             try:
+                log(f"Attempting POI start (attempt {idx+1}/{len(attempts)})...")
                 if drone(poi_start(**kwargs)).wait(_timeout=timeout_sec).success():
+                    log("POI mode started successfully")
                     started = True
                     break
-            except Exception:
+            except Exception as e:
+                log(f"POI attempt {idx+1} failed: {e}")
                 continue
 
         if not started:
-            log("poi.start failed; skipping")
+            log("All POI.start attempts failed; skipping")
             return True
 
+        log("Orbiting POI for 2 seconds...")
         time.sleep(2.0)
+        
+        log("Stopping POI mode...")
         try:
-            return bool(drone(poi_stop()).wait(_timeout=timeout_sec).success())
+            result = drone(poi_stop()).wait(_timeout=timeout_sec).success()
+            if result:
+                log("POI mode stopped successfully")
+            return bool(result)
         except Exception:
+            log("POI stop failed, continuing anyway")
             return True
 
     def step_camera_record_and_photo() -> bool:
@@ -187,33 +232,55 @@ def main() -> int:
                 take_photo,
             )
 
+            log("Starting video recording (Camera2)...")
             if not drone(start_recording()).wait(_timeout=timeout_sec).success():
+                log("Failed to start recording")
                 return False
+            log("Recording started, waiting 1 second...")
             time.sleep(1.0)
+            
+            log("Stopping video recording...")
             if not drone(stop_recording()).wait(_timeout=timeout_sec).success():
+                log("Failed to stop recording")
                 return False
+            log("Recording stopped successfully")
             time.sleep(0.5)
+            
+            log("Taking photo...")
             if not drone(take_photo()).wait(_timeout=timeout_sec).success():
+                log("Failed to take photo")
                 return False
+            log("Photo taken successfully")
             return True
-        except Exception:
+        except Exception as e:
+            log(f"Camera2 not available ({e}), trying Ardrone3.MediaRecord...")
             try:
                 from olympe.messages.ardrone3.MediaRecord import (  # type: ignore
                     VideoV2,
                     PictureV2,
                 )
-                # Start/stop video then take a picture
+                log("Starting video recording (Ardrone3)...")
                 if not drone(VideoV2(record=1)).wait(_timeout=timeout_sec).success():
+                    log("Failed to start recording")
                     return False
+                log("Recording started, waiting 1 second...")
                 time.sleep(1.0)
+                
+                log("Stopping video recording...")
                 if not drone(VideoV2(record=0)).wait(_timeout=timeout_sec).success():
+                    log("Failed to stop recording")
                     return False
+                log("Recording stopped successfully")
                 time.sleep(0.5)
+                
+                log("Taking photo...")
                 if not drone(PictureV2()).wait(_timeout=timeout_sec).success():
+                    log("Failed to take photo")
                     return False
+                log("Photo taken successfully")
                 return True
             except Exception:
-                log("camera feature not available; skipping")
+                log("Camera feature not available; skipping")
                 return True
 
     def step_rth_then_cancel() -> bool:
@@ -221,25 +288,52 @@ def main() -> int:
         try:
             from olympe.messages.rth import return_to_home, state as rth_state  # type: ignore
 
-            # Start RTH
+            log("Initiating Return To Home (RTH)...")
             if not drone(return_to_home(1)).wait(_timeout=timeout_sec).success():
+                log("Failed to start RTH")
                 return False
-            # Wait RTH state update
+            log("RTH started")
+            
+            log("Waiting for RTH state update...")
             if not drone(rth_state(_policy="check")).wait(_timeout=timeout_sec):
+                log("RTH state check failed")
                 return False
-            # Cancel RTH by sending a piloting command (moveBy 0s spin)
-            return bool(drone(moveBy(0.0, 0.0, 0.0, 0.0)).wait(_timeout=timeout_sec).success())
-        except Exception:
-            # Fallback: Ardrone3 NavigateHome
+            log("RTH state confirmed")
+            
+            log("Cancelling RTH with moveBy command...")
+            result = drone(moveBy(0.0, 0.0, 0.0, 0.0)).wait(_timeout=timeout_sec).success()
+            if result:
+                log("RTH cancelled successfully")
+            return bool(result)
+        except Exception as e:
+            log(f"RTH feature not available ({e}), using Ardrone3 NavigateHome...")
+            
+            log("Starting NavigateHome...")
             if not drone(NavigateHome(1)).wait(_timeout=timeout_sec).success():
+                log("Failed to start NavigateHome")
                 return False
+            log("NavigateHome started")
+            
+            log("Waiting for NavigateHome state...")
             if not drone(NavigateHomeStateChanged(_policy="check")).wait(_timeout=timeout_sec):
+                log("NavigateHome state check failed")
                 return False
-            # Cancel by issuing NavigateHome(0)
-            return bool(drone(NavigateHome(0)).wait(_timeout=timeout_sec).success())
+            log("NavigateHome state confirmed")
+            
+            log("Cancelling NavigateHome...")
+            result = drone(NavigateHome(0)).wait(_timeout=timeout_sec).success()
+            if result:
+                log("NavigateHome cancelled successfully")
+            return bool(result)
 
     def step_land() -> bool:
-        return bool(drone(Landing()).wait(_timeout=timeout_sec).success())
+        log("Sending Landing command...")
+        result = drone(Landing()).wait(_timeout=timeout_sec).success()
+        if result:
+            log("Landing command successful - drone is landing")
+        else:
+            log("Landing command failed!")
+        return bool(result)
 
     steps = [
         ("connect", step_connect),
