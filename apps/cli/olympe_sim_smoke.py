@@ -210,6 +210,7 @@ def main() -> int:
         log("Setting gimbal pitch to -10° (looking down)...")
         ok = drone(
             set_target(
+                gimbal_id=0,  # Main gimbal (usually 0 for most drones)
                 control_mode="position",
                 yaw_frame_of_reference="none",
                 yaw=0.0,

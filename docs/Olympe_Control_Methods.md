@@ -106,15 +106,16 @@ Gimbal
 ------
 
 Commands
-- set_target(control_mode, yaw_frame, yaw, pitch_frame, pitch, roll_frame, roll)
-- set_offsets(yaw, pitch, roll)
-- set_max_speed(yaw, pitch, roll)
-- calibrate()
+- set_target(gimbal_id, control_mode, yaw_frame_of_reference, yaw, pitch_frame_of_reference, pitch, roll_frame_of_reference, roll)
+  * gimbal_id: typically 0 for main gimbal
+- set_offsets(gimbal_id, yaw, pitch, roll)
+- set_max_speed(gimbal_id, yaw, pitch, roll)
+- calibrate(gimbal_id)
 
 States/Events
-- attitude(frame, yaw, pitch, roll)
-- state(mode)
-- alert(error)
+- attitude(gimbal_id, frame_of_reference, yaw_absolute, pitch_absolute, roll_absolute, yaw_relative, pitch_relative, roll_relative)
+- state(gimbal_id, mode)
+- alert(gimbal_id, error)
 
 
 Camera / Camera2 (recording, photo, imaging)
