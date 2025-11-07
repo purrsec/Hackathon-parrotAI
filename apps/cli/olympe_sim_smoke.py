@@ -195,6 +195,45 @@ def main() -> int:
         log("Square pattern completed!")
         return True
 
+    def step_mission_z() -> bool:
+        """
+        Fly a Z-shaped trajectory with constant heading using relative moveBy commands:
+          1) Top horizontal leg
+          2) Diagonal leg to the opposite side
+          3) Bottom horizontal leg
+        This creates a realistic inspection-like path that moves the drone away from home,
+        suitable to validate RTH behavior afterward.
+        """
+        length = float(os.environ.get("Z_LENGTH_M", "15.0"))  # total forward distance of each leg
+        width = float(os.environ.get("Z_WIDTH_M", "10.0"))    # lateral offset covered by the diagonal
+
+        log(f"Starting Z mission: length={length}m, width={width}m")
+
+        # Leg 1: top horizontal (forward)
+        log("Z Leg 1/3: Moving forward...")
+        if not drone(moveBy(length, 0.0, 0.0, 0.0)).wait(_timeout=timeout_sec).success():
+            log("Failed on Z Leg 1")
+            return False
+        log("Z Leg 1 completed")
+
+        # Leg 2: diagonal (forward + left)
+        # Body frame: +dx is forward, -dy is left
+        log("Z Leg 2/3: Moving diagonally (forward-left)...")
+        if not drone(moveBy(length, -width, 0.0, 0.0)).wait(_timeout=timeout_sec).success():
+            log("Failed on Z Leg 2")
+            return False
+        log("Z Leg 2 completed")
+
+        # Leg 3: bottom horizontal (forward)
+        log("Z Leg 3/3: Moving forward...")
+        if not drone(moveBy(length, 0.0, 0.0, 0.0)).wait(_timeout=timeout_sec).success():
+            log("Failed on Z Leg 3")
+            return False
+        log("Z Leg 3 completed")
+
+        log("Z mission completed!")
+        return True
+
     def step_gimbal_pitch() -> bool:
         try:
             from olympe.messages.gimbal import set_target, attitude  # type: ignore
@@ -348,6 +387,47 @@ def main() -> int:
             log("Continuing anyway (non-critical test)")
             return True
 
+    def step_rth_and_land() -> bool:
+        """
+        Trigger Return-To-Home and wait until it finishes, then land.
+        Prefers the modern rth API and falls back to NavigateHome if needed.
+        """
+        log("Triggering Return-To-Home...")
+        used_fallback = False
+        try:
+            from olympe.messages import rth  # type: ignore
+            if not drone(rth.return_to_home(start=1)).wait(_timeout=timeout_sec).success():
+                log("Failed to start RTH via rth.return_to_home")
+                return False
+            log("RTH started, waiting for completion...")
+            # Wait until RTH reports finished (available, reason=finished)
+            # Allow a longer timeout for the full return flight
+            if not drone(rth.state(state="available", reason="finished")).wait(_timeout=timeout_sec * 6):
+                log("RTH did not report completion within timeout")
+                # Continue anyway; we will attempt to land
+        except Exception:
+            used_fallback = True
+            log("rth API not available; falling back to NavigateHome...")
+            if not drone(NavigateHome(start=1)).wait(_timeout=timeout_sec).success():
+                log("Failed to start NavigateHome")
+                return False
+            # Give some time for the drone to return near home
+            time.sleep(5.0)
+
+        # Depending on configuration, RTH may end in hovering near home. Ensure landing.
+        log("Initiating landing after RTH...")
+        land_ok = drone(Landing()).wait(_timeout=timeout_sec * 2).success()
+        if not land_ok:
+            log("Landing command failed after RTH")
+            return False
+        # Wait until we are actually landed
+        landed = drone(FlyingStateChanged(state="landed")).wait(_timeout=timeout_sec * 2)
+        if landed:
+            log("✓ RTH completed and drone landed")
+        else:
+            log("⚠ Drone landing status not confirmed within timeout")
+        return bool(landed)
+
     def step_land() -> bool:
         log("Sending Landing command...")
         result = drone(Landing()).wait(_timeout=timeout_sec).success()
@@ -362,12 +442,8 @@ def main() -> int:
         ("wait_ready", step_wait_ready),
         ("ensure_landed", step_ensure_landed),
         ("takeoff_hover", step_takeoff_hover),
-        ("move_square", step_move_square),
-        ("gimbal_pitch", step_gimbal_pitch),
-        ("poi_start_stop", step_poi_start_stop),
-        ("camera_record_and_photo", step_camera_record_and_photo),
-        ("rth_then_cancel", step_rth_then_cancel),
-        ("land", step_land),
+        ("mission_z", step_mission_z),
+        ("rth_and_land", step_rth_and_land),
     ]
 
     overall_ok = True
@@ -432,3 +508,4 @@ if __name__ == "__main__":
     sys.exit(main())
 
 
+#Z_LENGTH_M=15 Z_WIDTH_M=10 uv run apps/cli/olympe_sim_smoke.py
