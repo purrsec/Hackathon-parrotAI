@@ -294,22 +294,24 @@ def main() -> int:
                 take_photo,
             )
 
-            log("Starting video recording (Camera2)...")
-            if not drone(start_recording()).wait(_timeout=timeout_sec).success():
+            camera_id = 0  # Main camera (usually 0)
+            
+            log(f"Starting video recording (Camera2, cam_id={camera_id})...")
+            if not drone(start_recording(cam_id=camera_id)).wait(_timeout=timeout_sec).success():
                 log("Failed to start recording")
                 return False
             log("Recording started, waiting 1 second...")
             time.sleep(1.0)
             
             log("Stopping video recording...")
-            if not drone(stop_recording()).wait(_timeout=timeout_sec).success():
+            if not drone(stop_recording(cam_id=camera_id)).wait(_timeout=timeout_sec).success():
                 log("Failed to stop recording")
                 return False
             log("Recording stopped successfully")
             time.sleep(0.5)
             
             log("Taking photo...")
-            if not drone(take_photo()).wait(_timeout=timeout_sec).success():
+            if not drone(take_photo(cam_id=camera_id)).wait(_timeout=timeout_sec).success():
                 log("Failed to take photo")
                 return False
             log("Photo taken successfully")
