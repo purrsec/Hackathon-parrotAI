@@ -106,40 +106,42 @@ Gimbal
 ------
 
 Commands
-- set_target(control_mode, yaw_frame, yaw, pitch_frame, pitch, roll_frame, roll)
-- set_offsets(yaw, pitch, roll)
-- set_max_speed(yaw, pitch, roll)
-- calibrate()
+- set_target(gimbal_id, control_mode, yaw_frame_of_reference, yaw, pitch_frame_of_reference, pitch, roll_frame_of_reference, roll)
+  * gimbal_id: typically 0 for main gimbal
+- set_offsets(gimbal_id, yaw, pitch, roll)
+- set_max_speed(gimbal_id, yaw, pitch, roll)
+- calibrate(gimbal_id)
 
 States/Events
-- attitude(frame, yaw, pitch, roll)
-- state(mode)
-- alert(error)
+- attitude(gimbal_id, frame_of_reference, yaw_absolute, pitch_absolute, roll_absolute, yaw_relative, pitch_relative, roll_relative)
+- state(gimbal_id, mode)
+- alert(gimbal_id, error)
 
 
 Camera / Camera2 (recording, photo, imaging)
 ---------------------------------------------
 
 Commands (Camera2-style)
-- set_mode(mode)
-- set_recording_mode(mode, resolution, framerate, hyperlapse)
-- start_recording()
-- stop_recording()
-- set_photo_mode(mode, format, file_format)
-- take_photo(bracketing, burst_value, capture_interval)
-- set_white_balance(mode, custom_temperature)
-- set_ev_compensation(value)
-- set_exposure_settings(mode, shutter_speed, iso_sensitivity, maximum_iso_sensitivity, metering_mode)
-- set_zoom_target(control_mode, target)
-- set_zoom_velocity(velocity)
-- set_alignment(horizon, yaw)
+- set_mode(cam_id, mode)
+- set_recording_mode(cam_id, mode, resolution, framerate, hyperlapse)
+- start_recording(cam_id)
+  * cam_id: typically 0 for main camera
+- stop_recording(cam_id)
+- set_photo_mode(cam_id, mode, format, file_format)
+- take_photo(cam_id, bracketing, burst_value, capture_interval)
+- set_white_balance(cam_id, mode, custom_temperature)
+- set_ev_compensation(cam_id, value)
+- set_exposure_settings(cam_id, mode, shutter_speed, iso_sensitivity, maximum_iso_sensitivity, metering_mode)
+- set_zoom_target(cam_id, control_mode, target)
+- set_zoom_velocity(cam_id, velocity)
+- set_alignment(cam_id, horizon, yaw)
 
 States/Events
-- recording_state(state, start_stop_error)
-- photo_state(state, error)
-- zoom_level(current_level)
-- white_balance(mode)
-- ev_compensation(value)
+- recording_state(cam_id, state, start_stop_error)
+- photo_state(cam_id, state, error)
+- zoom_level(cam_id, current_level)
+- white_balance(cam_id, mode)
+- ev_compensation(cam_id, value)
 
 
 Common.Settings (selected controls)
