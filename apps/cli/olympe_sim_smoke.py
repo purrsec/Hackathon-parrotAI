@@ -207,12 +207,17 @@ def main() -> int:
         """
         length = float(os.environ.get("Z_LENGTH_M", "15.0"))  # total forward distance of each leg
         width = float(os.environ.get("Z_WIDTH_M", "10.0"))    # lateral offset covered by the diagonal
+        # Per-leg movement timeout (seconds)
+        move_timeout_sec = float(os.environ.get("MOVE_TIMEOUT_SEC", "45"))
 
         log(f"Starting Z mission: length={length}m, width={width}m")
 
         # Leg 1: top horizontal (forward)
         log("Z Leg 1/3: Moving forward...")
-        if not drone(moveBy(length, 0.0, 0.0, 0.0)).wait(_timeout=timeout_sec).success():
+        move_ack = drone(moveBy(length, 0.0, 0.0, 0.0)).wait(_timeout=move_timeout_sec).success()
+        # Always confirm completion by waiting hovering after the move
+        hover_ok = drone(FlyingStateChanged(state="hovering")).wait(_timeout=move_timeout_sec)
+        if not (move_ack or hover_ok):
             log("Failed on Z Leg 1")
             return False
         log("Z Leg 1 completed")
@@ -220,14 +225,18 @@ def main() -> int:
         # Leg 2: diagonal (forward + left)
         # Body frame: +dx is forward, -dy is left
         log("Z Leg 2/3: Moving diagonally (forward-left)...")
-        if not drone(moveBy(length, -width, 0.0, 0.0)).wait(_timeout=timeout_sec).success():
+        move_ack = drone(moveBy(length, -width, 0.0, 0.0)).wait(_timeout=move_timeout_sec).success()
+        hover_ok = drone(FlyingStateChanged(state="hovering")).wait(_timeout=move_timeout_sec)
+        if not (move_ack or hover_ok):
             log("Failed on Z Leg 2")
             return False
         log("Z Leg 2 completed")
 
         # Leg 3: bottom horizontal (forward)
         log("Z Leg 3/3: Moving forward...")
-        if not drone(moveBy(length, 0.0, 0.0, 0.0)).wait(_timeout=timeout_sec).success():
+        move_ack = drone(moveBy(length, 0.0, 0.0, 0.0)).wait(_timeout=move_timeout_sec).success()
+        hover_ok = drone(FlyingStateChanged(state="hovering")).wait(_timeout=move_timeout_sec)
+        if not (move_ack or hover_ok):
             log("Failed on Z Leg 3")
             return False
         log("Z Leg 3 completed")
@@ -514,7 +523,7 @@ def main() -> int:
                 log("✓ Drone airborne - landing will be enforced at end")
             
             # Track if we successfully landed
-            if name == "land" and ok:
+            if name == "rth_and_land" and ok:
                 landed_safely = True
                 log("✓ Drone landed safely")
             
@@ -526,11 +535,11 @@ def main() -> int:
         # CRITICAL: Always land if drone took off and hasn't landed yet
         if took_off and not landed_safely:
             log("=" * 60)
-            log("⚠️  SAFETY: Forcing landing - drone is still airborne!")
+            log("⚠️  SAFETY: Enforcing Return-To-Home and landing - drone is still airborne!")
             log("=" * 60)
             try:
-                with_step("emergency_land", step_land)
-                log("✓ Emergency landing completed")
+                with_step("rth_and_land_safety", step_rth_and_land)
+                log("✓ Safety RTH and landing completed")
             except Exception as e:
                 log(f"❌ Emergency landing failed: {e}")
                 log("⚠️  MANUAL INTERVENTION REQUIRED - DRONE MAY BE AIRBORNE!")
