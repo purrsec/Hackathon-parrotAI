@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import math
 from typing import Callable, Optional
 
 # Exit codes
@@ -394,25 +395,77 @@ def main() -> int:
         """
         log("Triggering Return-To-Home...")
         used_fallback = False
+        # Allow longer timeout for full return flight (configurable)
+        rth_timeout_sec = float(os.environ.get("RTH_TIMEOUT_SEC", "300"))
+        # Radius in meters to consider "at home"
+        home_radius_m = float(os.environ.get("RTH_HOME_RADIUS_M", "5.0"))
+
+        def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+            r = 6371000.0
+            dlat = math.radians(lat2 - lat1)
+            dlon = math.radians(lon2 - lon1)
+            a = (
+                math.sin(dlat / 2) ** 2
+                + math.cos(math.radians(lat1))
+                * math.cos(math.radians(lat2))
+                * math.sin(dlon / 2) ** 2
+            )
+            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+            return r * c
+
+        # Try to read home (takeoff) location for proximity-based confirmation
+        home_lat = None
+        home_lon = None
+        try:
+            from olympe.messages import rth as rth_msgs  # type: ignore
+            tk = drone.get_state(rth_msgs.takeoff_location)
+            if isinstance(tk, dict):
+                home_lat = tk.get("latitude")
+                home_lon = tk.get("longitude")
+        except Exception:
+            # rth messages not available yet; ignore
+            pass
+
         try:
             from olympe.messages import rth  # type: ignore
             if not drone(rth.return_to_home(start=1)).wait(_timeout=timeout_sec).success():
                 log("Failed to start RTH via rth.return_to_home")
                 return False
             log("RTH started, waiting for completion...")
-            # Wait until RTH reports finished (available, reason=finished)
-            # Allow a longer timeout for the full return flight
-            if not drone(rth.state(state="available", reason="finished")).wait(_timeout=timeout_sec * 6):
-                log("RTH did not report completion within timeout")
-                # Continue anyway; we will attempt to land
+            # Wait until RTH reports finished (available, reason=finished) with extended timeout
+            finished = drone(rth.state(state="available", reason="finished")).wait(_timeout=rth_timeout_sec)
+            if not finished:
+                log("RTH did not report completion in time; will also check proximity to home...")
         except Exception:
             used_fallback = True
             log("rth API not available; falling back to NavigateHome...")
             if not drone(NavigateHome(start=1)).wait(_timeout=timeout_sec).success():
                 log("Failed to start NavigateHome")
                 return False
-            # Give some time for the drone to return near home
+            # fallback path: just wait some time and then rely on proximity check
             time.sleep(5.0)
+
+        # If we have home coordinates, wait until near-home or RTH finished
+        near_home = False
+        if home_lat is not None and home_lon is not None:
+            start_wait = time.time()
+            while time.time() - start_wait < rth_timeout_sec:
+                pos = drone.get_state(olympe.messages.ardrone3.PilotingState.PositionChanged)  # type: ignore
+                if isinstance(pos, dict):
+                    lat = pos.get("latitude")
+                    lon = pos.get("longitude")
+                    if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
+                        dist = haversine_m(home_lat, home_lon, float(lat), float(lon))
+                        log(f"RTH progress: distance to home ~ {dist:.1f} m")
+                        if dist <= home_radius_m:
+                            near_home = True
+                            break
+                time.sleep(1.0)
+
+        if near_home:
+            log("Arrived near home location (within radius); proceeding to land.")
+        else:
+            log("Proximity check did not confirm arrival within timeout; proceeding cautiously to land.")
 
         # Depending on configuration, RTH may end in hovering near home. Ensure landing.
         log("Initiating landing after RTH...")
