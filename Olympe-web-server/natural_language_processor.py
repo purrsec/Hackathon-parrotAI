@@ -48,7 +48,7 @@ class NaturalLanguageProcessor:
 		"""Build the system prompt with POI information and available actions."""
 		poi_list = self._format_poi_list()
 		
-	system_prompt = """You are a drone mission planner. Generate missions as JSON ONLY.
+		system_prompt = """You are a drone mission planner. Generate missions as JSON ONLY.
 
 Actions (use ONLY these):
 - takeoff: {"type":"takeoff","constraints":{"maxWaitSec":20}}
@@ -59,9 +59,9 @@ Actions (use ONLY these):
 
 POIs:
 """
-	system_prompt += poi_list
-	
-	system_prompt += """
+		system_prompt += poi_list
+		
+		system_prompt += """
 Template:
 {"missionId":"auto-2025-11-08-X","segments":[{"type":"takeoff","constraints":{"maxWaitSec":20}},{"type":"move_to",...},{"type":"poi_inspection",...},{"type":"return_to_home"},{"type":"land"}],"safety":{"geofence":{"enabled":true},"maxAltitudeMeters":80,"minBatteryPercent":25}}
 
