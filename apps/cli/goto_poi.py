@@ -79,6 +79,7 @@ def main() -> int:
         from olympe import Drone
         from olympe.messages.ardrone3.Piloting import TakeOff, Landing, NavigateHome
         from olympe.messages.ardrone3.PilotingState import FlyingStateChanged
+        from olympe.messages.ardrone3.SpeedSettings import MaxVerticalSpeed, MaxRotationSpeed
         from olympe.messages.move import extended_move_to, extended_move_by
     except Exception as exc:
         log(f"Olympe import failed: {exc}")
@@ -142,6 +143,14 @@ def main() -> int:
         return True
 
     def step_climb_35m() -> bool:
+        # Ensure speed settings allow our requested per-move caps
+        if not drone(MaxVerticalSpeed(4.0)).wait(_timeout=timeout_sec).success():
+            log("Failed to set max vertical speed to 4.0 m/s")
+            return False
+        if not drone(MaxRotationSpeed(90.0)).wait(_timeout=timeout_sec).success():
+            log("Failed to set max rotation speed to 90 deg/s")
+            return False
+
         log(f"Climbing to {safe_altitude_m}m with max vertical speed 4 m/s...")
         # dZ is negative for upward movement
         # Use extended_move_by to specify max_vertical_speed directly
@@ -151,9 +160,9 @@ def main() -> int:
                 d_y=0.0,
                 d_z=-safe_altitude_m,
                 d_psi=0.0,
-                max_horizontal_speed=0.0,
+                max_horizontal_speed=0.5,
                 max_vertical_speed=4.0,
-                max_yaw_rotation_speed=0.0
+                max_yaw_rotation_speed=20.0
             )
         ).wait(_timeout=timeout_sec * 3).success()
         
