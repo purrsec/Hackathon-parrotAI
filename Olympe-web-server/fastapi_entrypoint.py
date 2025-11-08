@@ -27,6 +27,7 @@ import json
 import time
 import logging
 from datetime import datetime
+from natural_language_processor import get_nlp_processor
 
 # ============================================================================
 # Configuration du logging
@@ -37,6 +38,12 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 logger = logging.getLogger(__name__)
+
+# ============================================================================
+# Global NLP Processor Instance
+# ============================================================================
+
+nlp_processor = None
 
 # ============================================================================
 # Lifespan - Startup/Shutdown avec contexte moderne
@@ -50,6 +57,8 @@ async def lifespan(app: FastAPI):
     Cette approche moderne remplace @app.on_event("startup") et @app.on_event("shutdown").
     """
     # Startup
+    global nlp_processor
+    
     logger.info("=" * 80)
     logger.info("🚀 FastAPI Message Gateway - Starting up")
     logger.info("=" * 80)
@@ -58,8 +67,17 @@ async def lifespan(app: FastAPI):
     logger.info("   - REST API: POST /message")
     logger.info("   - Health: GET /health")
     logger.info("=" * 80)
-    logger.info("📌 Note: Le traitement (NLP → Olympe) sera fait")
-    logger.info("         par un module Python séparé")
+    logger.info("🤖 Initializing NLP Processor with Mistral...")
+    
+    try:
+        nlp_processor = get_nlp_processor()
+        logger.info("✅ NLP Processor initialized successfully")
+        logger.info("   - Mistral client configured")
+        logger.info("   - POI data loaded from industrial_city.json")
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize NLP Processor: {e}")
+        nlp_processor = None
+    
     logger.info("=" * 80)
     
     yield  # L'application tourne
@@ -142,25 +160,29 @@ class UserMessage(BaseModel):
 
 class MessageResponse(BaseModel):
     """
-    Réponse après réception d'un message utilisateur.
+    Réponse après traitement d'un message utilisateur.
     
     Format:
     {
         "id": "msg-123",
-        "status": "received",
-        "message": "Message reçu et en cours de traitement",
+        "status": "processed",
+        "message": "Mission DSL créée avec succès",
+        "mission_dsl": {...},
         "timestamp": "2025-11-08T17:30:00"
     }
     
-    Note: Cette réponse indique juste que le message a été reçu.
-    Le traitement réel (NLP + Olympe) se fait de manière asynchrone.
+    Note: Cette réponse inclut maintenant le mission DSL généré par le NLP.
     """
     id: str = Field(..., description="ID du message original")
-    status: Literal["received", "error", "rejected"] = Field(
+    status: Literal["processed", "error", "rejected"] = Field(
         ...,
-        description="Statut de la réception"
+        description="Statut du traitement"
     )
     message: str = Field(..., description="Message de confirmation/erreur")
+    mission_dsl: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Mission DSL générée par le NLP (si succès)"
+    )
     timestamp: str = Field(
         default_factory=lambda: datetime.now().isoformat(),
         description="Timestamp ISO 8601"
@@ -190,12 +212,13 @@ MAX_HISTORY_SIZE = 100
 # Helpers - Construction de réponses
 # ============================================================================
 
-def received_response(msg_id: str, confirmation_msg: str) -> MessageResponse:
-    """Réponse de réception réussie"""
+def processed_response(msg_id: str, confirmation_msg: str, mission_dsl: Dict[str, Any] = None) -> MessageResponse:
+    """Réponse de traitement réussi avec mission DSL"""
     return MessageResponse(
         id=msg_id,
-        status="received",
-        message=confirmation_msg
+        status="processed",
+        message=confirmation_msg,
+        mission_dsl=mission_dsl
     )
 
 
@@ -223,17 +246,21 @@ def rejected_response(msg_id: str, reason: str) -> MessageResponse:
 
 async def route_message(user_message: UserMessage) -> MessageResponse:
     """
-    Router principal - Reçoit les messages en langage naturel.
+    Router principal - Reçoit les messages en langage naturel et les traite avec NLP.
     
-    Cette fonction ne fait QUE recevoir et logger.
-    Le traitement réel (NLP → Olympe) sera fait par un autre module.
+    Processus:
+    1. Log le message entrant
+    2. Enregistre dans l'historique
+    3. Traite avec le NLP processor pour générer une mission DSL
+    4. Retourne la mission générée ou l'erreur
     
     Args:
         user_message: Message utilisateur validé
         
     Returns:
-        MessageResponse: Confirmation de réception
+        MessageResponse: Réponse avec mission DSL ou erreur
     """
+    total_start = time.perf_counter()
     # Logging du message entrant
     logger.info("=" * 80)
     logger.info(f"📥 MESSAGE IN - ID: {user_message.id}")
@@ -246,20 +273,52 @@ async def route_message(user_message: UserMessage) -> MessageResponse:
     # Enregistrer dans l'historique
     _add_to_history(user_message)
     
-    # TODO: Passer au module de traitement (NLP + Olympe)
-    # Pour l'instant, on confirme juste la réception
-    logger.info("📋 TODO: Passer le message au module de traitement NLP/Olympe")
-    
-    # Confirmation de réception
-    result = received_response(
-        user_message.id,
-        f"Message reçu: '{user_message.message[:50]}...'" if len(user_message.message) > 50 
-        else f"Message reçu: '{user_message.message}'"
-    )
+    # Vérifier que le NLP processor est disponible
+    if nlp_processor is None:
+        logger.error("❌ NLP Processor not initialized")
+        result = error_response(
+            user_message.id,
+            "NLP Processor not available. Check server logs."
+        )
+    else:
+        try:
+            # Traiter le message avec le NLP processor
+            logger.info("🤖 Processing with NLP Processor...")
+            nlp_start = time.perf_counter()
+            mission_dsl = await nlp_processor.process_user_message(user_message.message)
+            nlp_elapsed_ms = (time.perf_counter() - nlp_start) * 1000.0
+            logger.info(f"⏱️ NLP processing time: {nlp_elapsed_ms:.1f} ms")
+            
+            # Vérifier s'il y a une erreur dans la réponse
+            if "error" in mission_dsl:
+                logger.error(f"❌ NLP Processing error: {mission_dsl.get('error')}")
+                result = error_response(
+                    user_message.id,
+                    f"NLP Error: {mission_dsl.get('error')}"
+                )
+            else:
+                logger.info("✅ Mission DSL generated successfully")
+                result = processed_response(
+                    user_message.id,
+                    "Mission DSL created successfully",
+                    mission_dsl
+                )
+        
+        except Exception as e:
+            logger.error(f"❌ Error during NLP processing: {str(e)}", exc_info=True)
+            result = error_response(
+                user_message.id,
+                f"Processing error: {str(e)}"
+            )
     
     # Logging de la réponse
     logger.info(f"📤 RESPONSE OUT - ID: {result.id}")
     logger.info(f"   Status: {result.status}")
+    if result.mission_dsl:
+        logger.info(f"   Mission ID: {result.mission_dsl.get('missionId', 'N/A')}")
+        logger.info(f"   Segments: {len(result.mission_dsl.get('segments', []))}")
+    total_elapsed_ms = (time.perf_counter() - total_start) * 1000.0
+    logger.info(f"⏱️ Total route time: {total_elapsed_ms:.1f} ms")
     logger.info("=" * 80)
     
     return result
@@ -360,7 +419,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 user_message = UserMessage(
                     id=str(payload["id"]),
                     message=str(payload["message"]),
-                    source=payload.get("source", "api"),
+                    source=payload.get("source", "websocket"),
                     user_id=payload.get("user_id"),
                     metadata=dict(payload.get("metadata", {}))
                 )
@@ -376,14 +435,20 @@ async def websocket_endpoint(websocket: WebSocket):
             # Router le message
             result = await route_message(user_message)
             
-            # Envoyer la réponse
-            await websocket.send_json({
-                "type": "message_received",
+            # Envoyer la réponse avec mission DSL si disponible
+            response_json = {
+                "type": "message_processed",
                 "id": result.id,
                 "status": result.status,
                 "message": result.message,
                 "timestamp": result.timestamp
-            })
+            }
+            
+            # Ajouter la mission DSL si elle existe
+            if result.mission_dsl:
+                response_json["mission_dsl"] = result.mission_dsl
+            
+            await websocket.send_json(response_json)
     
     except WebSocketDisconnect:
         logger.info(f"🔌 WebSocket déconnecté: {client_id}")
