@@ -39,7 +39,7 @@ def main() -> int:
             NavigateHome,
             StartPilotedPOIV2,
             StopPilotedPOI,
-            PCMD,
+            moveBy,
         )
         from olympe.messages.ardrone3.PilotingState import (  # type: ignore
             FlyingStateChanged,
@@ -76,10 +76,10 @@ def main() -> int:
     midpoint_alt = 25.0  # meters (safely above 15m bounding box)
     
     # Flight altitude for inspection (above structures)
-    flight_alt = 40.0  # meters
+    flight_alt = 30.0  # meters
     
     # Offset distance for POI viewing (meters) - drone position offset from POI for good camera angle
-    poi_offset_distance = 12.0  # meters
+    poi_offset_distance = 25.0  # meters
     # At latitude ~48.88, 1 degree ≈ 111km, so 12m ≈ 0.000108 degrees
     offset_degrees = poi_offset_distance / 111000.0
     
@@ -272,27 +272,33 @@ def main() -> int:
             except Exception:
                 log("WARNING: POI state unavailable")
             
-            # Orbit around the POI using only roll (lateral strafe)
-            # PCMD parameters: (flag, roll, pitch, yaw, gaz, timestamp)
-            # In POI mode, drone faces POI, so we strafe left/right in a circle using only roll
+            # Orbit around the POI using moveBy on Y axis (lateral movement)
+            # moveBy parameters: (dx, dy, dz, dPsi) where dy is left/right (Y axis)
+            # In POI mode, drone faces POI, so we move left/right using moveBy Y axis
             log("Orbiting around Ventilation Pipes POI...")
             rotation_duration = 15.0  # seconds
-            rotation_steps = int(rotation_duration * 20)  # 20 Hz command rate
-            strafe_speed = 15  # Speed for strafe movement
+            orbit_radius = 5.0  # meters - radius of the orbit
             num_orbits = 1.0  # Number of full circles
+            num_steps = 30  # Number of moveBy commands for smooth orbit
             
-            for i in range(rotation_steps):
+            total_distance = 2 * math.pi * orbit_radius * num_orbits
+            step_distance = total_distance / num_steps
+            
+            for i in range(num_steps):
                 # Calculate angle for circular orbit
-                angle = (2 * math.pi * num_orbits * i) / rotation_steps
-                # Roll (left/right strafe): positive = right, negative = left
-                roll = int(strafe_speed * math.cos(angle))
-                # Send strafe command (pitch=0, yaw=0 since POI mode handles heading)
-                drone(PCMD(1, roll, 0, 0, 0, timestampAndSeqNum=0))
-                time.sleep(0.05)
+                angle = (2 * math.pi * num_orbits * i) / num_steps
+                # Calculate lateral movement (dy): positive = right, negative = left
+                # Use the derivative of the circular path for smooth movement
+                dy = step_distance * math.cos(angle)  # Lateral movement component
+                # moveBy: (dx=0 forward/back, dy=lateral, dz=0 up/down, dPsi=0 yaw)
+                # In POI mode, dPsi should be 0 as POI mode handles heading
+                log(f"Step {i+1}/{num_steps}: Moving laterally by {dy:.2f}m")
+                result = drone(moveBy(0.0, dy, 0.0, 0.0)).wait(_timeout=2.0)
+                if not result.success():
+                    log(f"Warning: moveBy step {i+1} may not have completed: {result.explain()}")
+                time.sleep(0.1)  # Small delay between movements
             
-            # Stop movement
-            drone(PCMD(0, 0, 0, 0, 0, timestampAndSeqNum=0))
-            log("Rotation completed")
+            log("Orbit completed")
             
             # Stop POI mode
             log("Stopping POI mode...")
@@ -372,27 +378,33 @@ def main() -> int:
             except Exception:
                 log("WARNING: POI state unavailable")
             
-            # Orbit around the POI using only roll (lateral strafe)
-            # PCMD parameters: (flag, roll, pitch, yaw, gaz, timestamp)
-            # In POI mode, drone faces POI, so we strafe left/right in a circle using only roll
+            # Orbit around the POI using moveBy on Y axis (lateral movement)
+            # moveBy parameters: (dx, dy, dz, dPsi) where dy is left/right (Y axis)
+            # In POI mode, drone faces POI, so we move left/right using moveBy Y axis
             log("Orbiting around Advertising Board POI...")
             rotation_duration = 15.0  # seconds
-            rotation_steps = int(rotation_duration * 20)  # 20 Hz command rate
-            strafe_speed = 15  # Speed for strafe movement
+            orbit_radius = 5.0  # meters - radius of the orbit
             num_orbits = 1.0  # Number of full circles
+            num_steps = 30  # Number of moveBy commands for smooth orbit
             
-            for i in range(rotation_steps):
+            total_distance = 2 * math.pi * orbit_radius * num_orbits
+            step_distance = total_distance / num_steps
+            
+            for i in range(num_steps):
                 # Calculate angle for circular orbit
-                angle = (2 * math.pi * num_orbits * i) / rotation_steps
-                # Roll (left/right strafe): positive = right, negative = left
-                roll = int(strafe_speed * math.cos(angle))
-                # Send strafe command (pitch=0, yaw=0 since POI mode handles heading)
-                drone(PCMD(1, roll, 0, 0, 0, timestampAndSeqNum=0))
-                time.sleep(0.05)
+                angle = (2 * math.pi * num_orbits * i) / num_steps
+                # Calculate lateral movement (dy): positive = right, negative = left
+                # Use the derivative of the circular path for smooth movement
+                dy = step_distance * math.cos(angle)  # Lateral movement component
+                # moveBy: (dx=0 forward/back, dy=lateral, dz=0 up/down, dPsi=0 yaw)
+                # In POI mode, dPsi should be 0 as POI mode handles heading
+                log(f"Step {i+1}/{num_steps}: Moving laterally by {dy:.2f}m")
+                result = drone(moveBy(0.0, dy, 0.0, 0.0)).wait(_timeout=2.0)
+                if not result.success():
+                    log(f"Warning: moveBy step {i+1} may not have completed: {result.explain()}")
+                time.sleep(0.1)  # Small delay between movements
             
-            # Stop movement
-            drone(PCMD(0, 0, 0, 0, 0, timestampAndSeqNum=0))
-            log("Rotation completed")
+            log("Orbit completed")
             
             # Stop POI mode
             log("Stopping POI mode...")
