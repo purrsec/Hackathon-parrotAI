@@ -153,7 +153,7 @@ def main() -> int:
                 latitude=target_lat,
                 longitude=target_lon,
                 altitude=safe_altitude_m,  # Climb to safe altitude during flight
-                orientation_mode=olympe.enums.move.OrientationMode.TO_TARGET,
+                orientation_mode=olympe.enums.moveTo.OrientationMode.TO_TARGET,
                 heading=0.0  # Will be ignored with TO_TARGET mode
             )
         ).wait(_timeout=timeout_sec * 4).success()
