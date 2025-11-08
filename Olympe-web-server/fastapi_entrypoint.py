@@ -386,6 +386,7 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     client_id = f"ws-{id(websocket)}"
     logger.info(f"✅ WebSocket connecté: {client_id}")
+    last_pending_id: Optional[str] = None
     
     try:
         # Message d'accueil
@@ -419,14 +420,19 @@ async def websocket_endpoint(websocket: WebSocket):
                 message_text = str(payload.get("message", "")).strip().lower()
                 is_confirmation = ("confirm" in payload) or (message_text in ("yes", "no", "oui", "non"))
                 if is_confirmation:
-                    if "id" not in payload:
+                    provided_id = str(payload.get("id", "")).strip()
+                    # Select target mission id: prefer provided id if known, else fallback to last_pending_id
+                    if provided_id and provided_id in pending_missions:
+                        confirm_id = provided_id
+                    elif last_pending_id and last_pending_id in pending_missions:
+                        confirm_id = last_pending_id
+                    else:
                         await websocket.send_json({
                             "type": "error",
-                            "message": "Confirmation requires 'id' of the mission message",
+                            "message": f"No pending mission for id={provided_id or 'N/A'}",
                             "timestamp": datetime.now().isoformat()
                         })
                         continue
-                    confirm_id = str(payload["id"])
                     pending = pending_missions.get(confirm_id)
                     if not pending:
                         await websocket.send_json({
@@ -632,6 +638,8 @@ async def websocket_endpoint(websocket: WebSocket):
                         "created_at": datetime.now().isoformat(),
                         "source_message": payload
                     }
+                    # Memorize this as the last pending mission for this connection
+                    last_pending_id = str(result.id)
                     # Récupérer l'identité du drone (best-effort)
                     try:
                         identity = get_drone_identity()
