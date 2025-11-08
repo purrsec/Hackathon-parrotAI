@@ -7,3 +7,8 @@ requires-python = ">=3.11,<3.14"
 dependencies = [
     "parrot-olympe>=7.7.5",
 ]
+
+[tool.uv.workspace]
+members = [
+    "Olympe-web-server",
+]
