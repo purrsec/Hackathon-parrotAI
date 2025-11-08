@@ -75,6 +75,8 @@ Rules:
 7. CRITICAL SAFETY: Fly at 30m altitude (safe clearance above 15m obstacle box)
 8. Obstacle box max altitude is 15m - NEVER fly below 20m for safety margin
 9. For optimal POI inspection, position drone at 30m altitude with good viewing angle
+10. IMPORTANT: Respect user's request exactly - if they say "a building" (singular), visit ONLY ONE POI, not all
+11. If user says "all" or "buildings" (plural), visit all POIs. Otherwise select ONE appropriate POI
 """
 		
 		return system_prompt

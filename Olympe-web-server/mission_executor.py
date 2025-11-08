@@ -212,6 +212,13 @@ def _segment_poi_inspection(
 
 
 def _segment_return_to_home(drone, timeout_sec: float) -> None:
+    """
+    Return to home. Based on poi_inspection.py approach:
+    - Set ending_behavior to landing if supported
+    - Start RTH
+    - Wait for completion
+    Note: With ending_behavior='landing', RTH will land automatically
+    """
     logger.info("Segment: return_to_home")
     rth_timeout_sec = float(os.environ.get("RTH_TIMEOUT_SEC", "300"))
     
@@ -255,10 +262,45 @@ def _segment_return_to_home(drone, timeout_sec: float) -> None:
 
 
 def _segment_land(drone, Landing, FlyingStateChanged, timeout_sec: float) -> None:
+    """
+    Land the drone. Based on poi_inspection.py approach.
+    This should be called after RTH or as a standalone landing command.
+    If RTH was called with ending_behavior='landing', the drone may already be landing.
+    """
     logger.info("Segment: land")
-    if not drone(Landing()).wait(_timeout=timeout_sec).success():
-        raise MissionExecutionError("Landing command failed")
-    if not drone(FlyingStateChanged(state="landed")).wait(_timeout=timeout_sec * 2):
+    
+    # Check current state before attempting landing
+    from olympe.messages.ardrone3.PilotingState import FlyingStateChanged as FSC  # type: ignore
+    try:
+        current_state = drone.get_state(FSC)
+        if current_state:
+            state_value = current_state.get("state") if isinstance(current_state, dict) else None
+            state_str = str(state_value).split(".")[-1] if state_value else None
+            logger.info(f"Current flying state before landing: {state_str}")
+            
+            # If already landed or landing, just wait for confirmation
+            if state_str in ["landed", "landing"]:
+                logger.info("Drone is already landed or landing, waiting for confirmation...")
+                if drone(FlyingStateChanged(state="landed")).wait(_timeout=timeout_sec * 2):
+                    logger.info("✓ Drone is landed")
+                    return
+                else:
+                    logger.warning("Landing status not confirmed within timeout, but continuing")
+                    return
+    except Exception as e:
+        logger.warning(f"Could not check flying state: {e}, proceeding with landing command")
+    
+    # Send landing command
+    logger.info("Initiating landing command...")
+    land_ok = drone(Landing()).wait(_timeout=timeout_sec * 2).success()
+    if not land_ok:
+        logger.warning("Landing command did not return success")
+    
+    # Wait for landed state
+    landed = drone(FlyingStateChanged(state="landed")).wait(_timeout=timeout_sec * 2)
+    if landed:
+        logger.info("✓ Drone landed successfully")
+    else:
         logger.warning("Landing status not confirmed within timeout")
 
 
