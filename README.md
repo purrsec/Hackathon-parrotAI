@@ -1,125 +1,163 @@
-ParrotAI Intel Agent — Discord Conversational Interface for Parrot Olympe
-========================================================================
+ParrotAI — Natural Language Drone Control System
+================================================
 
-Build a modular, multi-contributor agent that turns natural language into safe and executable flight plans for Parrot ANAFI drones using the Olympe SDK. Users issue plain-language commands via Discord (e.g. `!intel je veux faire un survol autour de la tour DesChamps puis reviens`) and the system parses, plans, validates, and executes the mission in simulation or on a real drone.
+A complete system that turns natural language into safe and executable flight plans for Parrot ANAFI drones using the Olympe SDK. Users send plain-language commands via WebSocket (e.g. "Visit all buildings and come back home") and the system uses Mistral AI to parse, plan, validate, and execute missions in Parrot Sphinx simulator or on real drones.
 
-Reference: Parrot Olympe SDK docs: https://developer.parrot.com/docs/olympe/index.html
+**Reference:** Parrot Olympe SDK docs: https://developer.parrot.com/docs/olympe/index.html
 
+---
 
-TL;DR
------
+## 🚀 Quick Start
 
-1. Create `.env` with your tokens and settings (see "Configuration").
-2. Install deps (choose one):
-   - uv: `uv venv .venv && source .venv/bin/activate && uv pip install -r requirements.txt` (or `uv sync` if using `pyproject.toml`)
-   - Docker: `docker compose up -d dev && docker compose exec dev bash`
-3. Start Sphinx simulator (optional, recommended during dev). See "Simulator (Parrot Sphinx)".
-4. Run the bot: `uv run python -m apps.discord_bot` (or `python -m apps.discord_bot` with the venv activated).
-5. In Discord, type: `!intel je veux faire un survol autour de la tour DesChamps puis reviens`.
+**See [START.md](START.md) for detailed launch instructions.**
 
-
-Why this project
-----------------
-
-- Natural-language tasking of Parrot drones through Discord.
-- Safety-first orchestration: planning, constraints, validation, and dry-run in simulator.
-- Modular architecture to enable parallel work across small, well-defined modules (avoid monoliths).
+**TL;DR:**
+1. Launch Parrot Sphinx simulator with ANAFI Ai drone
+2. Launch Unreal Engine 4 industrial-city world
+3. Start FastAPI server: `cd Olympe-web-server && FAST_MISSION_DSL_MODEL=mistral-tiny-latest uv run fastapi_entrypoint.py`
+4. Start chat client: `cd client_debug && uv run chat_client.py`
+5. Send commands like: `"Visit a building and come back home"`
 
 
-High-level architecture
-----------------------
+## Why this project
+
+- **Natural-language drone control**: Send commands in plain English/French
+- **AI-powered mission planning**: Mistral AI translates requests into safe flight plans
+- **Safety-first**: Altitude constraints, geofencing, automatic RTH, battery monitoring
+- **Real-time execution**: WebSocket-based communication with live mission status
+- **Simulator-ready**: Full integration with Parrot Sphinx + Unreal Engine 4
+
+---
+
+## High-level Architecture
 
 ```
-Discord (user)  ->  Discord Bot  ->  NLP Agent (LLM)  ->  Mission Planner
-                        |                     |                |
-                        v                     |                v
-                  Command Router              |         Validation/Policies
-                        |                     |                |
-                        v                     v                v
-                     Olympe Driver  <----  Mission DSL  ->  Execution Engine
-                        |
-                        v
-                Drone (real) / Sphinx (sim)
+User (Natural Language)
+    ↓
+WebSocket Client (Terminal/NextJS/Discord)
+    ↓
+FastAPI WebSocket Server
+    ↓
+Natural Language Processor (Mistral AI)
+    ↓
+Mission DSL (JSON)
+    ↓
+Mission Executor (Olympe SDK)
+    ↓
+Parrot Sphinx Simulator + UE4 Visualization
+    ↓
+ANAFI Ai Drone (Simulated/Real)
 ```
 
-- Discord Bot: Receives `!intel ...` commands, handles replies.
-- NLP Agent: Uses an LLM (Claude / OpenAI / etc.) to parse free text into a Mission DSL (JSON) + constraints.
-- Mission Planner: Validates and converts the Mission DSL into Olympe commands.
-- Olympe Driver: Connects to drone or simulator and executes commands with telemetry/feedback.
-- Policy/Validation: Safety checks (geofence, max altitude/speed, RTH availability, battery margins).
+### Components
+
+- **FastAPI Server** (`Olympe-web-server/fastapi_entrypoint.py`): WebSocket endpoint for receiving natural language commands
+- **NLP Processor** (`natural_language_processor.py`): Uses Mistral AI to convert natural language → Mission DSL (JSON)
+- **Mission Executor** (`mission_executor.py`): Executes Mission DSL using Olympe SDK (takeoff, move_to, POI inspection, RTH, landing)
+- **Chat Client** (`client_debug/chat_client.py`): Terminal-based client for testing and debugging
+- **POI Data** (`maps/industrial_city.json`): Points of interest and obstacle definitions
+
+### Mission DSL Flow
+
+1. User sends: `"Visit all buildings and come back home"`
+2. Mistral generates Mission DSL with segments: `takeoff → move_to → poi_inspection → return_to_home → land`
+3. User confirms the mission
+4. Executor translates DSL to Olympe commands and executes on drone
+5. Real-time status updates sent back to client
 
 
-Repository layout
------------------
+---
+
+## Repository Layout
 
 ```
 .
-├─ NextJS/                    # Next.js web app (UI)
-├─ Olympe-web-server/         # HTTP API: receive POST, relay to Olympe/drone/sim
-├─ discord-bot/               # Discord bot interface
+├─ Olympe-web-server/         # FastAPI WebSocket server + NLP + Mission Executor
+│  ├─ fastapi_entrypoint.py   # Main server entry point
+│  ├─ natural_language_processor.py  # Mistral AI integration
+│  ├─ mission_executor.py     # Olympe SDK mission execution
+│  └─ requirements.txt
+├─ client_debug/              # Terminal chat client for testing
+│  └─ chat_client.py
 ├─ apps/
-│  └─ cli/                    # Local CLI smoke tests (Olympe)
+│  └─ cli/                    # Reference implementations (poi_inspection.py)
+├─ core/
+│  └─ world_map/              # Coordinate conversion utilities
+├─ maps/                      # POI and obstacle definitions
+│  └─ industrial_city.json
+├─ NextJS/                    # Next.js web UI (planned)
+├─ discord-bot/               # Discord bot interface (legacy)
 ├─ docs/
-├─ pyproject.toml / requirements.txt
-├─ uv.lock
-└─ README.md
+├─ START.md                   # Quick start guide (launch commands)
+├─ README.md                  # This file
+└─ pyproject.toml
 ```
 
-Planned modules (to be added)
------------------------------
+---
 
-```
-core/
-  nlp_agent/      # LLM interface + prompts + schemas
-  mission_dsl/    # JSON schema + validators + converters
-  planner/        # Path planning, waypoints, orbit, RTH logic
-  policies/       # Safety constraints & checks
-  execution/      # Orchestrates Olympe calls from validated plans
-adapters/
-  olympe_driver/  # Thin wrapper over Parrot Olympe SDK
-  geocoding/      # POI resolution (e.g., Nominatim), caching
-infra/
-  config/         # .env templates, settings loader
-  logging/        # Structured logging setup
-  docker/         # Dockerfile/devcontainer/compose
-  scripts/        # start_sphinx, check_env, etc.
-tests/
-  unit/
-  integration/
-```
+## Development Conventions
 
-Conventions for contributors
-----------------------------
+### Code Style
+- Keep modules small and cohesive (single responsibility)
+- Type hints for all function signatures
+- Docstrings for public APIs
+- Follow PEP 8 style guide
 
-- Keep modules small and cohesive (single responsibility).
-- Public interfaces are typed and documented; no leaking Olympe details outside `adapters/olympe_driver`.
-- Prefer dependency injection across modules; avoid global state.
-- Use the Mission DSL as the only contract between NLP parsing and planning/execution.
-- Always add unit tests for new logic; use Sphinx sim for integration tests before real flights.
-- Commit style: concise, imperative; include scope (e.g., `planner: add orbit strategy`).
+### Architecture Principles
+- Mission DSL is the contract between NLP and execution
+- No Olympe SDK leaking outside `mission_executor.py`
+- Environment variables for configuration (no hardcoded values)
+- Structured logging with appropriate levels
+
+### Testing
+- Always test in Parrot Sphinx before real hardware
+- Unit tests for business logic
+- Integration tests with simulator
+- Never commit API keys or tokens
+
+### Git Workflow
+- Commit style: `feat:`, `fix:`, `docs:`, `refactor:`, etc.
+- Concise, imperative commit messages
+- Example: `fix: improve RTH robustness and adjust altitude to 30m`
 
 
-Mission DSL (JSON) — example
-----------------------------
+---
 
-The NLP Agent should output a normalized mission request the planner can safely validate and execute. Example for the command "je veux faire un survol autour de la tour DesChamps puis reviens":
+## Mission DSL (JSON) — Current Implementation
+
+The NLP Processor (using Mistral AI) outputs a normalized Mission DSL that the executor can safely validate and execute. 
+
+### Example 1: Single Building Inspection
+
+User command: `"Visit a building and come back home"`
 
 ```json
 {
-  "missionId": "auto-2025-11-07-123456",
+  "missionId": "auto-2025-11-08-123456",
+  "understanding": "Takeoff, navigate to Advertising Board, perform POI inspection, return home and land",
   "segments": [
     {
       "type": "takeoff",
       "constraints": { "maxWaitSec": 20 }
     },
     {
-      "type": "orbit",
-      "poi": { "name": "tour DesChamps" },
-      "altitudeMeters": 30,
-      "radiusMeters": 20,
-      "laps": 1,
-      "clockwise": true,
-      "speedMetersPerSecond": 3
+      "type": "move_to",
+      "latitude": 48.87882157897949,
+      "longitude": 2.368181582689285,
+      "altitude": 30,
+      "max_horizontal_speed": 15,
+      "max_vertical_speed": 2,
+      "max_yaw_rotation_speed": 1
+    },
+    {
+      "type": "poi_inspection",
+      "poi_name": "Advertising Board",
+      "latitude": 48.87882157897949,
+      "longitude": 2.368181582689285,
+      "altitude": 30,
+      "rotation_duration": 30,
+      "roll_rate": 50,
+      "offset_distance": 15
     },
     {
       "type": "return_to_home"
@@ -130,28 +168,73 @@ The NLP Agent should output a normalized mission request the planner can safely 
   ],
   "safety": {
     "geofence": { "enabled": true },
-    "maxAltitudeMeters": 60,
+    "maxAltitudeMeters": 80,
     "minBatteryPercent": 25
   }
 }
 ```
 
-The planner is responsible for POI resolution (geocoding), airspace/geofence checks, battery/time feasibility, and converting to Olympe commands.
+### Supported Segment Types
+
+1. **takeoff**: Initial takeoff with constraints
+2. **move_to**: Navigate to GPS coordinates at specified altitude
+3. **poi_inspection**: Rotate around a point of interest with camera pointing at it
+4. **return_to_home**: Automatic RTH with landing behavior
+5. **land**: Manual landing command
+
+### Safety Constraints
+
+- **Default altitude**: 30m (safe clearance above 15m obstacle box)
+- **Geofencing**: Enabled by default
+- **Max altitude**: 80m
+- **Min battery**: 25% before RTH
+- **POI offset**: 15-25m distance for optimal viewing angle
 
 
-Discord usage
--------------
+---
 
-- Prefix: `!intel`
-- Examples:
-  - `!intel fais un cercle de 20m autour de la tour DesChamps à 30m d'altitude`
-  - `!intel décolle, va au point (48.858370, 2.294481) puis RTH`
-  - `!intel inspection lente de la façade nord, vitesse 1.5 m/s`
+## Usage Examples
 
-The bot will respond with:
-1) Parsed Mission DSL preview
-2) Safety/feasibility report and required confirmations
-3) Execution status updates (sim or real)
+### Terminal Chat Client
+
+The chat client (`client_debug/chat_client.py`) connects via WebSocket and provides real-time feedback.
+
+**Example commands:**
+
+```
+Visit a building and come back home
+```
+→ Visits ONE POI (Advertising Board) and returns
+
+```
+Visit all buildings
+```
+→ Visits ALL available POIs (Advertising Board, Ventilation Pipes, etc.)
+
+```
+Inspect the Advertising Board at 40 meters altitude
+```
+→ Custom altitude for specific POI inspection
+
+```
+Fly to coordinates 48.878, 2.367 at 35m and return
+```
+→ Custom GPS waypoint navigation
+
+### Response Flow
+
+1. **Understanding**: Short summary of what the drone will do
+2. **Mission DSL Preview**: JSON with all segments (takeoff, move_to, poi_inspection, RTH, land)
+3. **Confirmation Prompt**: `yes/no` to approve mission execution
+4. **Execution Updates**: Real-time status for each segment
+5. **Completion Report**: Success/failure with execution details
+
+### Available POIs (industrial_city map)
+
+- **Advertising Board** (48.878822°, 2.368182°, 19m altitude)
+- **Ventilation Pipes** (48.878815°, 2.366594°, 20m altitude)
+
+**Obstacle zones**: 0-15m altitude restricted
 
 
 Olympe & Parrot Sphinx
@@ -167,76 +250,125 @@ Basic Olympe workflow (conceptual):
 4. Monitor state/telemetry and enforce safety policies
 
 
-Prerequisites
--------------
+---
 
-- Python 3.10+ recommended
-- A Discord bot token and a test server
-- Optional: Access to an LLM provider (Anthropic Claude, OpenAI, etc.)
-- For Olympe:
-  - On x86_64 Debian/Ubuntu, you can install Olympe via `uv` (pip-compatible) (see official docs)
-  - On other distros (e.g., Arch), prefer Docker/devcontainer or a Debian-based container for Olympe
-- For simulation: Parrot Sphinx installed and configured
+## Prerequisites
 
+### Required
+- **Python 3.12+** (tested with 3.12)
+- **uv** package manager: https://github.com/astral-sh/uv
+- **Parrot Sphinx** simulator: https://developer.parrot.com/docs/sphinx/installation.html
+- **Parrot UE4** (Unreal Engine 4 world): industrial-city world
+- **Mistral API Key**: https://console.mistral.ai/
 
-Setup
------
+### Recommended
+- **Linux** (Ubuntu/Debian preferred for Olympe compatibility)
+- **Arch Linux** also supported (see project setup)
+- 8GB+ RAM for running Sphinx + UE4 simultaneously
 
-Using uv
-```
-uv venv .venv
-source .venv/bin/activate
+---
+
+## Installation
+
+### 1. Install Dependencies
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd Hackathon-parrotAI
+
+# Install Python dependencies with uv
+cd Olympe-web-server
+uv venv
+source .venv/bin/activate  # or .venv/Scripts/activate on Windows
 uv pip install -r requirements.txt
-# or, if using pyproject.toml:
-uv sync
+
+cd ../client_debug
+uv pip install -r requirements.txt
 ```
 
-Using Docker (recommended for non-Debian hosts)
+### 2. Set Environment Variables
+
+```bash
+# Set Mistral API key
+export MISTRAL_API_KEY="your_mistral_api_key_here"
+
+# Optional: customize model
+export FAST_MISSION_DSL_MODEL="mistral-tiny-latest"
+export FAST_MISSION_MAX_TOKENS=900
 ```
-docker compose up -d dev
-docker compose exec dev bash
-python -m apps.discord_bot
+
+### 3. Verify Parrot Sphinx Installation
+
+```bash
+# Check Sphinx is installed
+which sphinx
+
+# Check UE4 world is available
+which parrot-ue4-industrial-city
 ```
 
+---
 
-Configuration
--------------
+## Configuration
 
-Copy `.env.example` to `.env` and set:
+### Environment Variables
 
-```
-# Discord
-DISCORD_BOT_TOKEN=...
-DISCORD_GUILD_ID=...
+Set the following environment variables before starting the FastAPI server:
 
-# LLM (choose your provider)
-ANTHROPIC_API_KEY=...
-OPENAI_API_KEY=...
+```bash
+# Mistral AI (required)
+MISTRAL_API_KEY=your_mistral_api_key_here
+
+# Mission DSL Model (optional)
+FAST_MISSION_DSL_MODEL=mistral-tiny-latest    # Default: mistral-medium-latest
+FAST_MISSION_MAX_TOKENS=900                   # Default: 600
 
 # Olympe / Drone
-DRONE_IP=192.168.42.1            # physical drone default, or sim IP
-RTH_ALTITUDE_METERS=30
-MAX_ALTITUDE_METERS=60
-MIN_BATTERY_PERCENT=25
+DRONE_IP=10.202.0.1                           # Sphinx simulator default
+TIMEOUT_SEC=25                                # Default command timeout
+MOVE_TIMEOUT_SEC=120                          # Move command timeout
+RTH_TIMEOUT_SEC=300                           # RTH timeout (5 minutes)
 
-# Geocoding (optional)
-NOMINATIM_BASE_URL=https://nominatim.openstreetmap.org
+# Safety
+STRICT=1                                      # Stop mission on first failure (default)
 ```
 
+### Model Selection
 
-Running the bot
----------------
+- **mistral-tiny-latest**: Fast, economical, good for simple missions
+- **mistral-small-latest**: Balanced performance
+- **mistral-medium-latest**: High accuracy for complex missions
 
+---
+
+## Running the System
+
+See **[START.md](START.md)** for complete launch instructions.
+
+### Quick Launch (4 terminals)
+
+**Terminal 1 - Sphinx:**
+```bash
+sphinx "/opt/parrot-sphinx/usr/share/sphinx/drones/anafi_ai.drone"::name="drone_1"::pose="120 120 2 0 0 200"::firmware="https://firmware.parrot.com/Versions/anafi2/pc/%23latest/images/anafi2-pc.ext2.zip"
 ```
-# Option A: run within the venv
-source .venv/bin/activate
-python -m apps.discord_bot
 
-# Option B: run without activating the venv
-uv run python -m apps.discord_bot
+**Terminal 2 - UE4:**
+```bash
+parrot-ue4-industrial-city
 ```
 
-Invite the bot to your Discord server and post a command in a channel the bot can read.
+**Terminal 3 - FastAPI Server:**
+```bash
+cd Olympe-web-server
+FAST_MISSION_DSL_MODEL=mistral-tiny-latest FAST_MISSION_MAX_TOKENS=900 uv run fastapi_entrypoint.py
+```
+
+**Terminal 4 - Chat Client:**
+```bash
+cd client_debug
+uv run chat_client.py
+```
 
 
 Simulator (Parrot Sphinx)
@@ -264,14 +396,42 @@ Testing
 - Add fixtures/mocks for LLM responses; never test against live LLMs in CI.
 
 
-Roadmap
--------
+---
 
-- POI name resolution with caching and disambiguation prompts
-- Rich safety model (wind, GNSS accuracy, distance from home, link quality)
-- Video streaming capture and media management via Olympe
-- Interactive mission editing in Discord threads (approve/adjust segments)
-- Advanced patterns: lawnmower, facade inspection, 3D orbit, corridor mapping
+## Implemented Features ✅
+
+- ✅ Natural language processing with Mistral AI
+- ✅ WebSocket-based real-time communication
+- ✅ Mission DSL generation and validation
+- ✅ Takeoff, move_to, POI inspection, RTH, landing
+- ✅ User confirmation before mission execution
+- ✅ Safety constraints (altitude, geofencing, battery)
+- ✅ Parrot Sphinx + UE4 integration
+- ✅ Real-time execution status updates
+- ✅ Robust RTH with automatic landing detection
+- ✅ Singular/plural POI selection logic
+- ✅ Olympe logging verbosity control
+
+## Roadmap
+
+### Short-term
+- [ ] NextJS web interface (replace terminal chat client)
+- [ ] Video streaming capture during POI inspection
+- [ ] Enhanced error recovery and mission resume
+- [ ] Multiple drone support (swarm coordination)
+
+### Mid-term
+- [ ] Discord bot integration (legacy code modernization)
+- [ ] Mission history and replay
+- [ ] Custom POI definition via UI
+- [ ] Advanced patterns: orbit, facade inspection, corridor mapping
+- [ ] Weather and wind safety checks
+
+### Long-term
+- [ ] Real ANAFI Ai hardware integration
+- [ ] Computer vision for autonomous inspection
+- [ ] AI-powered anomaly detection
+- [ ] Multi-modal input (voice, images, sketches)
 
 
 References
