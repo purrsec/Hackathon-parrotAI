@@ -28,7 +28,7 @@ import time
 import logging
 from datetime import datetime
 from natural_language_processor import get_nlp_processor
-from mission_executor import get_drone_identity, execute_mission
+from mission_executor import get_drone_identity, execute_mission, check_olympe_ready
 import asyncio
 from mission_executor import get_drone_identity
 
@@ -456,6 +456,18 @@ async def websocket_endpoint(websocket: WebSocket):
                         continue
                     
                     # Confirmation accepted → lancer l'exécution en arrière-plan
+                    # Vérifier readiness Olympe/Drone avant démarrage
+                    ready, reason = await asyncio.to_thread(check_olympe_ready)
+                    if not ready:
+                        await websocket.send_json({
+                            "type": "mission_execution_blocked",
+                            "id": confirm_id,
+                            "reason": reason,
+                            "message": "Olympe/Drone not ready. Start Sphinx or connect to the drone, then retry.",
+                            "timestamp": datetime.now().isoformat()
+                        })
+                        continue
+                    
                     await websocket.send_json({
                         "type": "mission_execution_starting",
                         "id": confirm_id,

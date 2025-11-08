@@ -366,3 +366,34 @@ def get_drone_identity(timeout_sec: float = 10.0) -> Dict[str, Any]:
     return {"id": "drone_1", "ip": ip}
 
 
+def check_olympe_ready(timeout_sec: float = 10.0) -> Tuple[bool, str]:
+    """
+    Quick readiness probe: attempts to connect and fetch a basic state.
+    Returns (ready, reason).
+    """
+    try:
+        symbols = _import_olympe()
+        Drone = symbols["Drone"]
+        FlyingStateChanged = symbols["FlyingStateChanged"]
+    except Exception as exc:
+        return False, f"Olympe import failed: {exc}"
+    
+    ip = os.environ.get("DRONE_IP", "10.202.0.1")
+    drone = Drone(ip)
+    try:
+        if not bool(drone.connect()):
+            return False, f"Failed to connect to drone at {ip}. Is Sphinx/Drone running?"
+        # Probe state
+        ok = drone(FlyingStateChanged(_policy="check")).wait(_timeout=timeout_sec)
+        if not ok:
+            return False, "Drone flying state unavailable"
+        return True, "ok"
+    except Exception as exc:
+        return False, f"Exception during readiness check: {exc}"
+    finally:
+        try:
+            drone.disconnect()
+        except Exception:
+            pass
+
+
