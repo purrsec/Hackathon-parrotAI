@@ -79,12 +79,11 @@ ANAFI Ai Drone (Simulated/Real)
 │  └─ requirements.txt
 ├─ client_debug/              # Terminal chat client for testing
 │  └─ chat_client.py
-├─ apps/
-│  └─ cli/                    # Reference implementations (poi_inspection.py)
-├─ core/
-│  └─ world_map/              # Coordinate conversion utilities
 ├─ maps/                      # POI and obstacle definitions
 │  └─ industrial_city.json
+├─ archive/                   # Legacy code (for reference only)
+│  ├─ apps/cli/               # Old CLI scripts (incl. poi_inspection.py reference)
+│  └─ core/world_map/         # Old coordinate utilities
 ├─ NextJS/                    # Next.js web UI (planned)
 ├─ discord-bot/               # Discord bot interface (legacy)
 ├─ docs/

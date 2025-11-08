@@ -211,7 +211,7 @@ Unreal Engine 4 (Visualization)
 - `Olympe-web-server/mission_executor.py` : Exécution des missions sur le drone
 - `client_debug/chat_client.py` : Client de test en terminal
 - `maps/industrial_city.json` : Définition des POI et obstacles
-- `apps/cli/poi_inspection.py` : Script de référence pour POI inspection
+- `archive/apps/cli/poi_inspection.py` : Script de référence pour POI inspection (archivé)
 
 ---
 
