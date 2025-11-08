@@ -5,7 +5,7 @@ import os
 import logging
 from pathlib import Path
 from typing import Dict, Any
-from requests.mistral_socket import get_mistral_socket
+from api_clients.mistral_socket import get_mistral_socket
 
 logger = logging.getLogger(__name__)
 
