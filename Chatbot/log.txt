@@ -1,0 +1,550 @@
+   ✅ Plan de vol généré: 6 commandes
+      1. takeoff - Décollage à 50m d'altitude
+      2. goto - Navigation vers Centrale de Fessenheim (47.9094, 7.5603) à 50m
+      3. circle - Orbite autour de Centrale de Fessenheim (rayon: 200m)
+      4. capture - Capture d'une photo de Centrale de Fessenheim
+      5. rth - Retour au point de départ
+      6. land - Atterrissage
+
+📤 Réponse finale envoyée au client:
+   - Message: Voici ce que j’ai préparé pour la mission d’inspection de la centrale de Fessenheim.
+
+Ce que j’ai fa...
+   - Tool calls: 4
+   - Plan de vol: 6 commandes
+🤖 ========== FIN ÉCHANGE IA ==========
+
+ POST /api/chat 200 in 39922ms
+ GET / 200 in 16ms
+
+🤖 ========== DÉBUT ÉCHANGE IA ==========
+📤 Provider: Azure OpenAI
+📝 Messages utilisateur: [
+  {
+    "role": "assistant",
+    "content": "Bonjour ! Je suis votre assistant pour contrôler le drone. Comment puis-je vous aider ? Par exemple, vous pouvez me demander : \"Va voir si la centrale de Fessenheim a été touchée\""
+  },
+  {
+    "role": "user",
+    "content": "decolle à 50m stp"
+  }
+]
+🔧 System Prompt: Tu es un assistant expert pour contrôler un drone. Quand l'utilisateur demande une mission (inspection, reconnaissance, etc.), tu DOIS automatiquement :
+
+1. Récupérer les coordonnées GPS de tous les s...
+🛠️  Tools disponibles: getCoordonnees, getEtatInitial, getZoneInterdite, planMissionRecon, takeOff, goTo, circle, capture, returnToHome, land, getStatus
+
+📡 Appel initial à l'IA...
+
+🌐 Appel API Azure OpenAI
+   - Tool choice: auto
+   - Nombre de messages: 3
+   - Nombre de tools: 11
+   📤 Requête HTTP:
+      URL: https://bapti-m70vyuu5-eastus2.openai.azure.com/openai/deployments/gpt-5-EDTH/chat/completions?api-version=2025-01-01-preview
+      Headers: { 'Content-Type': 'application/json', 'api-key': '***' }
+      Body (preview): {"messages":[{"role":"system","content":"Tu es un assistant expert pour contrôler un drone. Quand l'utilisateur demande une mission (inspection, reconnaissance, etc.), tu DOIS automatiquement :\n\n1. Récupérer les coordonnées GPS de tous les sites mentionnés avec getCoordonnees\n2. Récupérer l'état initial du drone avec getEtatInitial (point de départ, altitude, vitesse)\n3. Vérifier les zones interdites avec getZoneInterdite\n4. Pour CHAQUE site, générer un plan de mission avec planMissionRecon...
+   📥 Réponse API reçue (preview): {"choices":[{"content_filter_results":{},"finish_reason":"tool_calls","index":0,"logprobs":null,"message":{"annotations":[],"content":null,"refusal":null,"role":"assistant","tool_calls":[{"function":{"arguments":"{\"alt_m\":50}","name":"takeOff"},"id":"call_9VJizavxmU4kJ6TxJPNGa558","type":"function"}]}}],"created":1762542479,"id":"chatcmpl-CZM6RrOFaj6J0G7fgAOa69PgHNzT2","model":"gpt-5-2025-08-07","object":"chat.completion","prompt_filter_results":[{"prompt_index":0,"content_filter_results":{"ha...
+📥 Réponse IA reçue:
+   - Contenu: (vide)
+   - Tool calls: 1
+   - Tool 1: takeOff
+     Arguments: "{\"alt_m\":50}"
+
+🔄 Tour 1/5
+
+🔧 1 outil(s) à exécuter:
+
+⚙️  Exécution: takeOff
+   Paramètres: {
+  "alt_m": 50
+}
+   ✅ Résultat: {
+  "id": "cmd_1762542487951",
+  "status": "success",
+  "message": "Décollage réussi à 50m",
+  "data": {
+    "altitude": 50,
+    "state": "hovering"
+  }
+}
+
+📊 État actuel:
+   - Coordonnées récupérées: false
+   - État initial récupéré: false
+   - Zones interdites récupérées: false
+   - Plans de mission générés: false
+   - Nombre de sites: 0
+
+💬 Génération de la réponse finale...
+📤 Contexte complet: 6 messages
+   - Tool calls effectués: 1
+   - Réflexion IA: (aucune)
+
+🌐 Appel API Azure OpenAI
+   - Tool choice: none
+   - Nombre de messages: 6
+   - Nombre de tools: 11
+   📤 Requête HTTP:
+      URL: https://bapti-m70vyuu5-eastus2.openai.azure.com/openai/deployments/gpt-5-EDTH/chat/completions?api-version=2025-01-01-preview
+      Headers: { 'Content-Type': 'application/json', 'api-key': '***' }
+      Body (preview): {"messages":[{"role":"system","content":"Tu es un assistant expert pour contrôler un drone. Quand l'utilisateur demande une mission (inspection, reconnaissance, etc.), tu DOIS automatiquement :\n\n1. Récupérer les coordonnées GPS de tous les sites mentionnés avec getCoordonnees\n2. Récupérer l'état initial du drone avec getEtatInitial (point de départ, altitude, vitesse)\n3. Vérifier les zones interdites avec getZoneInterdite\n4. Pour CHAQUE site, générer un plan de mission avec planMissionRecon...
+   📥 Réponse API reçue (preview): {"choices":[{"content_filter_results":{"hate":{"filtered":false,"severity":"safe"},"protected_material_code":{"filtered":false,"detected":false},"protected_material_text":{"filtered":false,"detected":false},"self_harm":{"filtered":false,"severity":"safe"},"sexual":{"filtered":false,"severity":"safe"},"violence":{"filtered":false,"severity":"safe"}},"finish_reason":"stop","index":0,"logprobs":null,"message":{"annotations":[],"content":"Décollage effectué. Le drone est en vol stationnaire à 50 m d...
+📥 Réponse finale IA:
+   - Contenu: Décollage effectué. Le drone est en vol stationnaire à 50 m d’altitude, prêt pour la prochaine instruction.
+
+Souhaitez-vous que je:
+- me dirige vers un point ou un site précis,
+- effectue une orbite autour d’une cible,
+- capture une photo ou lance une vidéo,
+- prépare une mission d’inspection sur un ou plusieurs sites (je récupérerai automatiquement les coordonnées, vérifierai les zones interdites et générerai le plan pour chaque site),
+- ou que je revienne au point de départ/atterrisse ?
+
+✈️  Génération du plan de vol...
+   - Coordonnées disponibles: false
+   - État initial disponible: false
+   ⚠️  Plan de vol non généré (données insuffisantes)
+
+📤 Réponse finale envoyée au client:
+   - Message: Décollage effectué. Le drone est en vol stationnaire à 50 m d’altitude, prêt pour la prochaine instr...
+   - Tool calls: 1
+   - Plan de vol: 0 commandes
+🤖 ========== FIN ÉCHANGE IA ==========
+
+ POST /api/chat 200 in 20649ms
+
+🤖 ========== DÉBUT ÉCHANGE IA ==========
+📤 Provider: Azure OpenAI
+📝 Messages utilisateur: [
+  {
+    "role": "assistant",
+    "content": "Bonjour ! Je suis votre assistant pour contrôler le drone. Comment puis-je vous aider ? Par exemple, vous pouvez me demander : \"Va voir si la centrale de Fessenheim a été touchée\""
+  },
+  {
+    "role": "user",
+    "content": "decolle à 50m stp"
+  },
+  {
+    "role": "assistant",
+    "content": "Décollage effectué. Le drone est en vol stationnaire à 50 m d’altitude, prêt pour la prochaine instruction.\n\nSouhaitez-vous que je:\n- me dirige vers un point ou un site précis,\n- effectue une orbite autour d’une cible,\n- capture une photo ou lance une vidéo,\n- prépare une mission d’inspection sur un ou plusieurs sites (je récupérerai automatiquement les coordonnées, vérifierai les zones interdites et générerai le plan pour chaque site),\n- ou que je revienne au point de départ/atterrisse ?"
+  },
+  {
+    "role": "user",
+    "content": "va en 1000 523 120"
+  }
+]
+🔧 System Prompt: Tu es un assistant expert pour contrôler un drone. Quand l'utilisateur demande une mission (inspection, reconnaissance, etc.), tu DOIS automatiquement :
+
+1. Récupérer les coordonnées GPS de tous les s...
+🛠️  Tools disponibles: getCoordonnees, getEtatInitial, getZoneInterdite, planMissionRecon, takeOff, goTo, circle, capture, returnToHome, land, getStatus
+
+📡 Appel initial à l'IA...
+
+🌐 Appel API Azure OpenAI
+   - Tool choice: auto
+   - Nombre de messages: 5
+   - Nombre de tools: 11
+   📤 Requête HTTP:
+      URL: https://bapti-m70vyuu5-eastus2.openai.azure.com/openai/deployments/gpt-5-EDTH/chat/completions?api-version=2025-01-01-preview
+      Headers: { 'Content-Type': 'application/json', 'api-key': '***' }
+      Body (preview): {"messages":[{"role":"system","content":"Tu es un assistant expert pour contrôler un drone. Quand l'utilisateur demande une mission (inspection, reconnaissance, etc.), tu DOIS automatiquement :\n\n1. Récupérer les coordonnées GPS de tous les sites mentionnés avec getCoordonnees\n2. Récupérer l'état initial du drone avec getEtatInitial (point de départ, altitude, vitesse)\n3. Vérifier les zones interdites avec getZoneInterdite\n4. Pour CHAQUE site, générer un plan de mission avec planMissionRecon...
+   📥 Réponse API reçue (preview): {"choices":[{"content_filter_results":{"hate":{"filtered":false,"severity":"safe"},"protected_material_code":{"filtered":false,"detected":false},"protected_material_text":{"filtered":false,"detected":false},"self_harm":{"filtered":false,"severity":"safe"},"sexual":{"filtered":false,"severity":"safe"},"violence":{"filtered":false,"severity":"safe"}},"finish_reason":"stop","index":0,"logprobs":null,"message":{"annotations":[],"content":"Les coordonnées “1000 523 120” ne sont pas des valeurs GPS va...
+📥 Réponse IA reçue:
+   - Contenu: Les coordonnées “1000 523 120” ne sont pas des valeurs GPS valides (latitude doit être entre −90 et 90, longitude entre −180 et 180). 
+
+Pouvez-vous préciser:
+- des coordonnées GPS au format “latitude, longitude, altitude en mètres” (ex: 48.8584, 2.2945, 120), 
+- ou le nom d’un site/d’une adresse pour que je le localise et envoie le drone ? 
+
+Si vous vouliez dire 10.00 de latitude, 5.23 de longitude, altitude 120 m, je peux y aller dès confirmation.
+   - Tool calls: 0
+
+🔄 Tour 1/5
+
+💬 Génération de la réponse finale...
+📤 Contexte complet: 6 messages
+   - Tool calls effectués: 0
+   - Réflexion IA: (aucune)
+
+🌐 Appel API Azure OpenAI
+   - Tool choice: none
+   - Nombre de messages: 6
+   - Nombre de tools: 11
+   📤 Requête HTTP:
+      URL: https://bapti-m70vyuu5-eastus2.openai.azure.com/openai/deployments/gpt-5-EDTH/chat/completions?api-version=2025-01-01-preview
+      Headers: { 'Content-Type': 'application/json', 'api-key': '***' }
+      Body (preview): {"messages":[{"role":"system","content":"Tu es un assistant expert pour contrôler un drone. Quand l'utilisateur demande une mission (inspection, reconnaissance, etc.), tu DOIS automatiquement :\n\n1. Récupérer les coordonnées GPS de tous les sites mentionnés avec getCoordonnees\n2. Récupérer l'état initial du drone avec getEtatInitial (point de départ, altitude, vitesse)\n3. Vérifier les zones interdites avec getZoneInterdite\n4. Pour CHAQUE site, générer un plan de mission avec planMissionRecon...
+   📥 Réponse API reçue (preview): {"choices":[{"content_filter_results":{"hate":{"filtered":false,"severity":"safe"},"protected_material_code":{"filtered":false,"detected":false},"protected_material_text":{"filtered":false,"detected":false},"self_harm":{"filtered":false,"severity":"safe"},"sexual":{"filtered":false,"severity":"safe"},"violence":{"filtered":false,"severity":"safe"}},"finish_reason":"stop","index":0,"logprobs":null,"message":{"annotations":[],"content":"Je peux envoyer le drone vers un point GPS, mais “1000 523 12...
+📥 Réponse finale IA:
+   - Contenu: Je peux envoyer le drone vers un point GPS, mais “1000 523 120” ne correspond pas à des coordonnées latitude/longitude valides (lat ∈ [-90; 90], lon ∈ [-180; 180]). Merci de préciser le point au bon format ou de clarifier le système de coordonnées utilisé.
+
+Formats acceptés:
+- Degrés décimaux (WGS84): latitude, longitude, altitude_m (ex: 48.85837, 2.29448, 120)
+- DMS: 48°51'29.6"N 2°17'40.1"E, 120 m
+- UTM/MGRS: indiquer zone, bande/hémisphère et easting/northing (ex: 31U 448251 5411932, altitude 120 m)
+- Nom d’un lieu/adresse: je peux convertir en coordonnées
+- Plus code: ex: 8FW4V75V+QC, altitude 120 m
+
+Si vous vouliez dire “10.00, 5.23, 120 m”, confirmez-le. Indiquez également la vitesse souhaitée (en m/s) si différente; à défaut, j’utiliserai la vitesse de croisière. Avant l’envoi, je vérifierai les zones à éviter le long de la trajectoire.
+
+📤 Réponse finale envoyée au client:
+   - Message: Je peux envoyer le drone vers un point GPS, mais “1000 523 120” ne correspond pas à des coordonnées ...
+   - Tool calls: 0
+   - Plan de vol: 0 commandes
+🤖 ========== FIN ÉCHANGE IA ==========
+
+ POST /api/chat 200 in 46456ms
+^C
+
+hrandriama : ~/Bureau/EDTH(main *+) ▸ npm run dev
+
+> edth-drone-chatbot@1.0.0 dev
+> next dev
+
+  ▲ Next.js 14.2.33
+  - Local:        http://localhost:3000
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 1779ms
+ ○ Compiling /api/chat ...
+ ✓ Compiled /api/chat in 882ms (203 modules)
+
+🤖 ========== DÉBUT ÉCHANGE IA ==========
+📤 Provider: Azure OpenAI
+📝 Messages utilisateur: [
+  {
+    "role": "assistant",
+    "content": "Bonjour ! Je suis votre assistant pour contrôler le drone. Comment puis-je vous aider ? Par exemple, vous pouvez me demander : \"Va voir si la centrale de Fessenheim a été touchée\""
+  },
+  {
+    "role": "user",
+    "content": "decolle à 50m stp"
+  },
+  {
+    "role": "assistant",
+    "content": "Décollage effectué. Le drone est en vol stationnaire à 50 m d’altitude, prêt pour la prochaine instruction.\n\nSouhaitez-vous que je:\n- me dirige vers un point ou un site précis,\n- effectue une orbite autour d’une cible,\n- capture une photo ou lance une vidéo,\n- prépare une mission d’inspection sur un ou plusieurs sites (je récupérerai automatiquement les coordonnées, vérifierai les zones interdites et générerai le plan pour chaque site),\n- ou que je revienne au point de départ/atterrisse ?"
+  },
+  {
+    "role": "user",
+    "content": "va en 1000 523 120"
+  },
+  {
+    "role": "assistant",
+    "content": "Je peux envoyer le drone vers un point GPS, mais “1000 523 120” ne correspond pas à des coordonnées latitude/longitude valides (lat ∈ [-90; 90], lon ∈ [-180; 180]). Merci de préciser le point au bon format ou de clarifier le système de coordonnées utilisé.\n\nFormats acceptés:\n- Degrés décimaux (WGS84): latitude, longitude, altitude_m (ex: 48.85837, 2.29448, 120)\n- DMS: 48°51'29.6\"N 2°17'40.1\"E, 120 m\n- UTM/MGRS: indiquer zone, bande/hémisphère et easting/northing (ex: 31U 448251 5411932, altitude 120 m)\n- Nom d’un lieu/adresse: je peux convertir en coordonnées\n- Plus code: ex: 8FW4V75V+QC, altitude 120 m\n\nSi vous vouliez dire “10.00, 5.23, 120 m”, confirmez-le. Indiquez également la vitesse souhaitée (en m/s) si différente; à défaut, j’utiliserai la vitesse de croisière. Avant l’envoi, je vérifierai les zones à éviter le long de la trajectoire."
+  },
+  {
+    "role": "user",
+    "content": "va en latitude, longitude, altitude_m (ex: 48.85837, 2.29448, 120) stp"
+  }
+]
+🔧 System Prompt: Tu es un assistant expert pour contrôler un drone. Quand l'utilisateur demande une mission (inspection, reconnaissance, etc.), tu DOIS automatiquement :
+
+1. Récupérer les coordonnées GPS de tous les s...
+🛠️  Tools disponibles: getCoordonnees, getEtatInitial, getZoneInterdite, planMissionRecon, takeOff, goTo, circle, capture, returnToHome, land, getStatus
+
+📡 Appel initial à l'IA...
+
+🌐 Appel API Azure OpenAI
+   - Tool choice: auto
+   - Nombre de messages: 7
+   - Nombre de tools: 11
+   📤 Requête HTTP:
+      URL: https://bapti-m70vyuu5-eastus2.openai.azure.com/openai/deployments/gpt-5-EDTH/chat/completions?api-version=2025-01-01-preview
+      Headers: { 'Content-Type': 'application/json', 'api-key': '***' }
+      Body (preview): {"messages":[{"role":"system","content":"Tu es un assistant expert pour contrôler un drone. Quand l'utilisateur demande une mission (inspection, reconnaissance, etc.), tu DOIS automatiquement :\n\n1. Récupérer les coordonnées GPS de tous les sites mentionnés avec getCoordonnees\n2. Récupérer l'état initial du drone avec getEtatInitial (point de départ, altitude, vitesse)\n3. Vérifier les zones interdites avec getZoneInterdite\n4. Pour CHAQUE site, générer un plan de mission avec planMissionRecon...
+ ✓ Compiled in 191ms (203 modules)
+   📥 Réponse API reçue (preview): {"choices":[{"content_filter_results":{},"finish_reason":"tool_calls","index":0,"logprobs":null,"message":{"annotations":[],"content":null,"refusal":null,"role":"assistant","tool_calls":[{"function":{"arguments":"{\"alt_m\":50}","name":"takeOff"},"id":"call_EDlnjJRBVpLD4gHYqzh5FtdE","type":"function"}]}}],"created":1762542661,"id":"chatcmpl-CZM9N5lFJ09ZhjvMqdCHS0Uj98L29","model":"gpt-5-2025-08-07","object":"chat.completion","prompt_filter_results":[{"prompt_index":0,"content_filter_results":{"ha...
+📥 Réponse IA reçue:
+   - Contenu: (vide)
+   - Tool calls: 1
+   - Tool 1: takeOff
+     Arguments: "{\"alt_m\":50}"
+
+🔄 Tour 1/5
+
+🔧 1 outil(s) à exécuter:
+
+⚙️  Exécution: takeOff
+   Paramètres: {
+  "alt_m": 50
+}
+(node:81961) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ POST /api/chat 200 in 32636ms
+ ○ Compiling / ...
+ ✓ Compiled / in 3.1s (655 modules)
+ GET / 200 in 3239ms
+ ✓ Compiled in 217ms (243 modules)
+   ✅ Résultat: {
+  "id": "cmd_1762542690762",
+  "status": "error",
+  "message": "Échec du décollage",
+  "data": {}
+}
+
+📊 État actuel:
+   - Coordonnées récupérées: false
+   - État initial récupéré: false
+   - Zones interdites récupérées: false
+   - Plans de mission générés: false
+   - Nombre de sites: 0
+
+💬 Génération de la réponse finale...
+📤 Contexte complet: 10 messages
+   - Tool calls effectués: 1
+   - Réflexion IA: (aucune)
+
+🌐 Appel API Azure OpenAI
+   - Tool choice: none
+   - Nombre de messages: 10
+   - Nombre de tools: 11
+   📤 Requête HTTP:
+      URL: https://bapti-m70vyuu5-eastus2.openai.azure.com/openai/deployments/gpt-5-EDTH/chat/completions?api-version=2025-01-01-preview
+      Headers: { 'Content-Type': 'application/json', 'api-key': '***' }
+      Body (preview): {"messages":[{"role":"system","content":"Tu es un assistant expert pour contrôler un drone. Quand l'utilisateur demande une mission (inspection, reconnaissance, etc.), tu DOIS automatiquement :\n\n1. Récupérer les coordonnées GPS de tous les sites mentionnés avec getCoordonnees\n2. Récupérer l'état initial du drone avec getEtatInitial (point de départ, altitude, vitesse)\n3. Vérifier les zones interdites avec getZoneInterdite\n4. Pour CHAQUE site, générer un plan de mission avec planMissionRecon...
+   📥 Réponse API reçue (preview): {"choices":[{"content_filter_results":{"hate":{"filtered":false,"severity":"safe"},"protected_material_code":{"filtered":false,"detected":false},"protected_material_text":{"filtered":false,"detected":false},"self_harm":{"filtered":false,"severity":"safe"},"sexual":{"filtered":false,"severity":"safe"},"violence":{"filtered":false,"severity":"safe"}},"finish_reason":"stop","index":0,"logprobs":null,"message":{"annotations":[],"content":"Mise à jour: j’ai tenté de faire décoller le drone à 50 m, ma...
+📥 Réponse finale IA:
+   - Contenu: Mise à jour: j’ai tenté de faire décoller le drone à 50 m, mais la commande système a échoué. Le drone est toujours au sol.
+
+Pour l’envoi vers une destination, j’ai besoin de coordonnées valides. Merci de fournir un point au bon format:
+- Degrés décimaux (WGS84): latitude, longitude, altitude_m (ex: 48.85837, 2.29448, 120)
+- DMS: 48°51'29.6"N 2°17'40.1"E, 120 m
+- UTM/MGRS: zone, bande, easting, northing + altitude (ex: 31U 448251 5411932, 120 m)
+- Nom d’un lieu/adresse ou plus code: je peux convertir, avec l’altitude souhaitée
+
+Si vous voulez réellement aller à 48.85837, 2.29448, altitude 120 m, indiquez-le clairement. Dès réception des coordonnées, je relance le décollage à 50 m, je vérifie les zones à éviter sur la trajectoire, puis j’envoie le drone à la destination à l’altitude indiquée (vitesse par défaut du drone).
+
+✈️  Génération du plan de vol...
+   - Coordonnées disponibles: false
+   - État initial disponible: false
+   ⚠️  Plan de vol non généré (données insuffisantes)
+
+📤 Réponse finale envoyée au client:
+   - Message: Mise à jour: j’ai tenté de faire décoller le drone à 50 m, mais la commande système a échoué. Le dro...
+   - Tool calls: 1
+   - Plan de vol: 0 commandes
+🤖 ========== FIN ÉCHANGE IA ==========
+
+
+🤖 ========== DÉBUT ÉCHANGE IA ==========
+📤 Provider: Azure OpenAI
+📝 Messages utilisateur: [
+  {
+    "role": "assistant",
+    "content": "Bonjour ! Je suis votre assistant pour contrôler le drone. Comment puis-je vous aider ? Par exemple, vous pouvez me demander : \"Va voir si la centrale de Fessenheim a été touchée\""
+  },
+  {
+    "role": "user",
+    "content": "decolle en 1000 stp"
+  }
+]
+🔧 System Prompt: Tu es un assistant expert pour contrôler un drone. Quand l'utilisateur demande une mission (inspection, reconnaissance, etc.), tu DOIS automatiquement :
+
+1. Récupérer les coordonnées GPS de tous les s...
+🛠️  Tools disponibles: getCoordonnees, getEtatInitial, getZoneInterdite, planMissionRecon, takeOff, goTo, circle, capture, returnToHome, land, getStatus
+
+📡 Appel initial à l'IA...
+
+🌐 Appel API Azure OpenAI
+   - Tool choice: auto
+   - Nombre de messages: 3
+   - Nombre de tools: 11
+   📤 Requête HTTP:
+      URL: https://bapti-m70vyuu5-eastus2.openai.azure.com/openai/deployments/gpt-5-EDTH/chat/completions?api-version=2025-01-01-preview
+      Headers: { 'Content-Type': 'application/json', 'api-key': '***' }
+      Body (preview): {"messages":[{"role":"system","content":"Tu es un assistant expert pour contrôler un drone. Quand l'utilisateur demande une mission (inspection, reconnaissance, etc.), tu DOIS automatiquement :\n\n1. Récupérer les coordonnées GPS de tous les sites mentionnés avec getCoordonnees\n2. Récupérer l'état initial du drone avec getEtatInitial (point de départ, altitude, vitesse)\n3. Vérifier les zones interdites avec getZoneInterdite\n4. Pour CHAQUE site, générer un plan de mission avec planMissionRecon...
+   📥 Réponse API reçue (preview): {"choices":[{"content_filter_results":{},"finish_reason":"tool_calls","index":0,"logprobs":null,"message":{"annotations":[],"content":null,"refusal":null,"role":"assistant","tool_calls":[{"function":{"arguments":"{\"alt_m\":1000}","name":"takeOff"},"id":"call_k5U4Mg6b1rXWvxYBRsknH2yu","type":"function"}]}}],"created":1762542721,"id":"chatcmpl-CZMALs0zudhnHQMKTBRG1BNzxH8qz","model":"gpt-5-2025-08-07","object":"chat.completion","prompt_filter_results":[{"prompt_index":0,"content_filter_results":{"...
+📥 Réponse IA reçue:
+   - Contenu: (vide)
+   - Tool calls: 1
+   - Tool 1: takeOff
+     Arguments: "{\"alt_m\":1000}"
+
+🔄 Tour 1/5
+
+🔧 1 outil(s) à exécuter:
+
+⚙️  Exécution: takeOff
+   Paramètres: {
+  "alt_m": 1000
+}
+   ✅ Résultat: {
+  "id": "cmd_1762542725679",
+  "status": "success",
+  "message": "Décollage réussi à 1000m",
+  "data": {
+    "altitude": 1000,
+    "state": "hovering"
+  }
+}
+
+📊 État actuel:
+   - Coordonnées récupérées: false
+   - État initial récupéré: false
+   - Zones interdites récupérées: false
+   - Plans de mission générés: false
+   - Nombre de sites: 0
+
+💬 Génération de la réponse finale...
+📤 Contexte complet: 6 messages
+   - Tool calls effectués: 1
+   - Réflexion IA: (aucune)
+
+🌐 Appel API Azure OpenAI
+   - Tool choice: none
+   - Nombre de messages: 6
+   - Nombre de tools: 11
+   📤 Requête HTTP:
+      URL: https://bapti-m70vyuu5-eastus2.openai.azure.com/openai/deployments/gpt-5-EDTH/chat/completions?api-version=2025-01-01-preview
+      Headers: { 'Content-Type': 'application/json', 'api-key': '***' }
+      Body (preview): {"messages":[{"role":"system","content":"Tu es un assistant expert pour contrôler un drone. Quand l'utilisateur demande une mission (inspection, reconnaissance, etc.), tu DOIS automatiquement :\n\n1. Récupérer les coordonnées GPS de tous les sites mentionnés avec getCoordonnees\n2. Récupérer l'état initial du drone avec getEtatInitial (point de départ, altitude, vitesse)\n3. Vérifier les zones interdites avec getZoneInterdite\n4. Pour CHAQUE site, générer un plan de mission avec planMissionRecon...
+   📥 Réponse API reçue (preview): {"choices":[{"content_filter_results":{"hate":{"filtered":false,"severity":"safe"},"protected_material_code":{"filtered":false,"detected":false},"protected_material_text":{"filtered":false,"detected":false},"self_harm":{"filtered":false,"severity":"safe"},"sexual":{"filtered":false,"severity":"safe"},"violence":{"filtered":false,"severity":"safe"}},"finish_reason":"stop","index":0,"logprobs":null,"message":{"annotations":[],"content":"Décollage effectué. Le drone est maintenant en vol stationnai...
+📥 Réponse finale IA:
+   - Contenu: Décollage effectué. Le drone est maintenant en vol stationnaire à 1000 m d’altitude.
+
+Etat actuel:
+- Altitude: 1000 m
+- Statut: stationnaire
+
+Remarques importantes:
+- Une altitude de 1000 m peut dépasser les limites légales dans de nombreuses zones. Assurez-vous de disposer des autorisations nécessaires et de respecter l’espace aérien local.
+- Les vents peuvent être plus forts à cette altitude; surveillez la marge de sécurité et l’autonomie.
+
+Prochaines actions possibles (dites-moi laquelle exécuter):
+- Maintenir le vol stationnaire à 1000 m
+- Se rendre à une position précise (donnez un nom de site ou des coordonnées)
+- Effectuer une orbite autour d’une cible
+- Démarrer une capture (photo/vidéo)
+- Revenir au point de départ ou atterrir
+
+Si vous souhaitez inspecter un site, indiquez son nom et je lancerai immédiatement la reconnaissance avec planification automatique de la mission et prise en compte des zones interdites.
+
+✈️  Génération du plan de vol...
+   - Coordonnées disponibles: false
+   - État initial disponible: false
+   ⚠️  Plan de vol non généré (données insuffisantes)
+
+📤 Réponse finale envoyée au client:
+   - Message: Décollage effectué. Le drone est maintenant en vol stationnaire à 1000 m d’altitude.
+
+Etat actuel:
+-...
+   - Tool calls: 1
+   - Plan de vol: 0 commandes
+🤖 ========== FIN ÉCHANGE IA ==========
+
+ POST /api/chat 200 in 25374ms
+
+🤖 ========== DÉBUT ÉCHANGE IA ==========
+📤 Provider: Azure OpenAI
+📝 Messages utilisateur: [
+  {
+    "role": "assistant",
+    "content": "Bonjour ! Je suis votre assistant pour contrôler le drone. Comment puis-je vous aider ? Par exemple, vous pouvez me demander : \"Va voir si la centrale de Fessenheim a été touchée\""
+  },
+  {
+    "role": "user",
+    "content": "decolle en 1000 stp"
+  },
+  {
+    "role": "assistant",
+    "content": "Décollage effectué. Le drone est maintenant en vol stationnaire à 1000 m d’altitude.\n\nEtat actuel:\n- Altitude: 1000 m\n- Statut: stationnaire\n\nRemarques importantes:\n- Une altitude de 1000 m peut dépasser les limites légales dans de nombreuses zones. Assurez-vous de disposer des autorisations nécessaires et de respecter l’espace aérien local.\n- Les vents peuvent être plus forts à cette altitude; surveillez la marge de sécurité et l’autonomie.\n\nProchaines actions possibles (dites-moi laquelle exécuter):\n- Maintenir le vol stationnaire à 1000 m\n- Se rendre à une position précise (donnez un nom de site ou des coordonnées)\n- Effectuer une orbite autour d’une cible\n- Démarrer une capture (photo/vidéo)\n- Revenir au point de départ ou atterrir\n\nSi vous souhaitez inspecter un site, indiquez son nom et je lancerai immédiatement la reconnaissance avec planification automatique de la mission et prise en compte des zones interdites."
+  },
+  {
+    "role": "user",
+    "content": "va en latitude, longitude, altitude_m (ex: 48.85837, 2.29448, 120) stp"
+  }
+]
+🔧 System Prompt: Tu es un assistant expert pour contrôler un drone. Quand l'utilisateur demande une mission (inspection, reconnaissance, etc.), tu DOIS automatiquement :
+
+1. Récupérer les coordonnées GPS de tous les s...
+🛠️  Tools disponibles: getCoordonnees, getEtatInitial, getZoneInterdite, planMissionRecon, takeOff, goTo, circle, capture, returnToHome, land, getStatus
+
+📡 Appel initial à l'IA...
+
+🌐 Appel API Azure OpenAI
+   - Tool choice: auto
+   - Nombre de messages: 5
+   - Nombre de tools: 11
+   📤 Requête HTTP:
+      URL: https://bapti-m70vyuu5-eastus2.openai.azure.com/openai/deployments/gpt-5-EDTH/chat/completions?api-version=2025-01-01-preview
+      Headers: { 'Content-Type': 'application/json', 'api-key': '***' }
+      Body (preview): {"messages":[{"role":"system","content":"Tu es un assistant expert pour contrôler un drone. Quand l'utilisateur demande une mission (inspection, reconnaissance, etc.), tu DOIS automatiquement :\n\n1. Récupérer les coordonnées GPS de tous les sites mentionnés avec getCoordonnees\n2. Récupérer l'état initial du drone avec getEtatInitial (point de départ, altitude, vitesse)\n3. Vérifier les zones interdites avec getZoneInterdite\n4. Pour CHAQUE site, générer un plan de mission avec planMissionRecon...
+   📥 Réponse API reçue (preview): {"choices":[{"content_filter_results":{},"finish_reason":"tool_calls","index":0,"logprobs":null,"message":{"annotations":[],"content":null,"refusal":null,"role":"assistant","tool_calls":[{"function":{"arguments":"{\"lat\":48.85837,\"lon\":2.29448,\"alt_m\":120}","name":"goTo"},"id":"call_JnXHbvarGHgr0SaMXSWqhLE3","type":"function"}]}}],"created":1762542757,"id":"chatcmpl-CZMAv1XNWXeWSQSFJARgaNpFj2q0K","model":"gpt-5-2025-08-07","object":"chat.completion","prompt_filter_results":[{"prompt_index":...
+📥 Réponse IA reçue:
+   - Contenu: (vide)
+   - Tool calls: 1
+   - Tool 1: goTo
+     Arguments: "{\"lat\":48.85837,\"lon\":2.29448,\"alt_m\":120}"
+
+🔄 Tour 1/5
+
+🔧 1 outil(s) à exécuter:
+
+⚙️  Exécution: goTo
+   Paramètres: {
+  "lat": 48.85837,
+  "lon": 2.29448,
+  "alt_m": 120
+}
+   ✅ Résultat: {
+  "id": "cmd_1762542762953",
+  "status": "error",
+  "message": "Erreur déplacement: moveTo() missing 2 required positional arguments: 'orientation_mode' and 'heading'",
+  "data": {}
+}
+
+📊 État actuel:
+   - Coordonnées récupérées: false
+   - État initial récupéré: false
+   - Zones interdites récupérées: false
+   - Plans de mission générés: false
+   - Nombre de sites: 0
+
+💬 Génération de la réponse finale...
+📤 Contexte complet: 8 messages
+   - Tool calls effectués: 1
+   - Réflexion IA: (aucune)
+
+🌐 Appel API Azure OpenAI
+   - Tool choice: none
+   - Nombre de messages: 8
+   - Nombre de tools: 11
+   📤 Requête HTTP:
+      URL: https://bapti-m70vyuu5-eastus2.openai.azure.com/openai/deployments/gpt-5-EDTH/chat/completions?api-version=2025-01-01-preview
+      Headers: { 'Content-Type': 'application/json', 'api-key': '***' }
+      Body (preview): {"messages":[{"role":"system","content":"Tu es un assistant expert pour contrôler un drone. Quand l'utilisateur demande une mission (inspection, reconnaissance, etc.), tu DOIS automatiquement :\n\n1. Récupérer les coordonnées GPS de tous les sites mentionnés avec getCoordonnees\n2. Récupérer l'état initial du drone avec getEtatInitial (point de départ, altitude, vitesse)\n3. Vérifier les zones interdites avec getZoneInterdite\n4. Pour CHAQUE site, générer un plan de mission avec planMissionRecon...
+   📥 Réponse API reçue (preview): {"choices":[{"content_filter_results":{"hate":{"filtered":false,"severity":"safe"},"protected_material_code":{"filtered":false,"detected":false},"protected_material_text":{"filtered":false,"detected":false},"self_harm":{"filtered":false,"severity":"safe"},"sexual":{"filtered":false,"severity":"safe"},"violence":{"filtered":false,"severity":"safe"}},"finish_reason":"stop","index":0,"logprobs":null,"message":{"annotations":[],"content":"Compris. J’ai tenté d’envoyer le drone vers 48.85837, 2.29448...
+📥 Réponse finale IA:
+   - Contenu: Compris. J’ai tenté d’envoyer le drone vers 48.85837, 2.29448 à 120 m, mais la commande de déplacement a été rejetée par l’autopilote faute de paramètres de navigation requis (cap et mode d’orientation). Aucun déplacement n’a eu lieu; le drone reste en vol stationnaire à son altitude actuelle.
+
+Pour exécuter correctement la navigation, il faut préciser:
+- Cap (heading): en degrés 0–359 (ex. 0° = nord, 90° = est).
+- Mode d’orientation (yaw): par exemple, nez aligné avec la trajectoire (“course-lock”), maintien du yaw actuel, ou nez dirigé vers la cible à l’arrivée.
+
+Proposition prête à être exécutée (si vous validez ces paramètres):
+- Destination: 48.85837, 2.29448
+- Altitude cible: 120 m (descente progressive si altitude actuelle > 120 m)
+- Cap: automatique vers le waypoint (ajusté en temps réel)
+- Orientation: nez aligné avec la trajectoire (course-lock)
+- Vitesse: modérée pour zone urbaine (par ex. 10 m/s), avec réduction à l’approche
+
+Point sécurité important:
+- La zone autour de la Tour Eiffel (coordonnées indiquées) est soumise à de fortes restrictions aériennes. Un vol de drone y est généralement interdit sans autorisation spécifique. Assurez-vous de respecter la réglementation et les éventuelles zones d’exclusion.
+
+Indiquez simplement le cap souhaité (en degrés) ou dites “cap auto” et “orientation trajectoire” pour que je lance immédiatement le déplacement avec ces paramètres.
+
+✈️  Génération du plan de vol...
+   - Coordonnées disponibles: false
+   - État initial disponible: false
+   ⚠️  Plan de vol non généré (données insuffisantes)
+
+📤 Réponse finale envoyée au client:
+   - Message: Compris. J’ai tenté d’envoyer le drone vers 48.85837, 2.29448 à 120 m, mais la commande de déplaceme...
+   - Tool calls: 1
+   - Plan de vol: 0 commandes
+🤖 ========== FIN ÉCHANGE IA ==========
+
+ POST /api/chat 200 in 28438ms
+^C
