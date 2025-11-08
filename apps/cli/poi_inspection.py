@@ -39,7 +39,7 @@ def main() -> int:
             NavigateHome,
             StartPilotedPOIV2,
             StopPilotedPOI,
-            moveBy,
+            PCMD,
         )
         from olympe.messages.ardrone3.PilotingState import (  # type: ignore
             FlyingStateChanged,
@@ -272,33 +272,22 @@ def main() -> int:
             except Exception:
                 log("WARNING: POI state unavailable")
             
-            # Orbit around the POI using moveBy on Y axis (lateral movement)
-            # moveBy parameters: (dx, dy, dz, dPsi) where dy is left/right (Y axis)
-            # In POI mode, drone faces POI, so we move left/right using moveBy Y axis
-            log("Orbiting around Ventilation Pipes POI...")
-            rotation_duration = 15.0  # seconds
-            orbit_radius = 5.0  # meters - radius of the orbit
-            num_orbits = 1.0  # Number of full circles
-            num_steps = 30  # Number of moveBy commands for smooth orbit
+            # Rotate around the POI using PCMD with constant roll
+            # PCMD parameters: (flag, roll, pitch, yaw, gaz, timestamp)
+            # In POI mode, drone faces POI, so we use constant roll to strafe around it
+            log("Rotating around Ventilation Pipes POI...")
+            rotation_duration = 30.0  # seconds
+            rotation_steps = int(rotation_duration * 20)  # 20 Hz command rate
+            roll_rate = 100  # Constant roll rate
             
-            total_distance = 2 * math.pi * orbit_radius * num_orbits
-            step_distance = total_distance / num_steps
+            for i in range(rotation_steps):
+                # Send constant roll command (roll=100, pitch=0, yaw=0)
+                drone(PCMD(1, roll_rate, 0, 0, 0, timestampAndSeqNum=0))
+                time.sleep(0.05)
             
-            for i in range(num_steps):
-                # Calculate angle for circular orbit
-                angle = (2 * math.pi * num_orbits * i) / num_steps
-                # Calculate lateral movement (dy): positive = right, negative = left
-                # Use the derivative of the circular path for smooth movement
-                dy = step_distance * math.cos(angle)  # Lateral movement component
-                # moveBy: (dx=0 forward/back, dy=lateral, dz=0 up/down, dPsi=0 yaw)
-                # In POI mode, dPsi should be 0 as POI mode handles heading
-                log(f"Step {i+1}/{num_steps}: Moving laterally by {dy:.2f}m")
-                result = drone(moveBy(0.0, dy, 0.0, 0.0)).wait(_timeout=2.0)
-                if not result.success():
-                    log(f"Warning: moveBy step {i+1} may not have completed: {result.explain()}")
-                time.sleep(0.1)  # Small delay between movements
-            
-            log("Orbit completed")
+            # Stop movement
+            drone(PCMD(0, 0, 0, 0, 0, timestampAndSeqNum=0))
+            log("Rotation completed")
             
             # Stop POI mode
             log("Stopping POI mode...")
@@ -378,33 +367,22 @@ def main() -> int:
             except Exception:
                 log("WARNING: POI state unavailable")
             
-            # Orbit around the POI using moveBy on Y axis (lateral movement)
-            # moveBy parameters: (dx, dy, dz, dPsi) where dy is left/right (Y axis)
-            # In POI mode, drone faces POI, so we move left/right using moveBy Y axis
-            log("Orbiting around Advertising Board POI...")
-            rotation_duration = 15.0  # seconds
-            orbit_radius = 5.0  # meters - radius of the orbit
-            num_orbits = 1.0  # Number of full circles
-            num_steps = 30  # Number of moveBy commands for smooth orbit
+            # Rotate around the POI using PCMD with constant roll
+            # PCMD parameters: (flag, roll, pitch, yaw, gaz, timestamp)
+            # In POI mode, drone faces POI, so we use constant roll to strafe around it
+            log("Rotating around Advertising Board POI...")
+            rotation_duration = 30.0  # seconds
+            rotation_steps = int(rotation_duration * 20)  # 20 Hz command rate
+            roll_rate = 100  # Constant roll rate
             
-            total_distance = 2 * math.pi * orbit_radius * num_orbits
-            step_distance = total_distance / num_steps
+            for i in range(rotation_steps):
+                # Send constant roll command (roll=100, pitch=0, yaw=0)
+                drone(PCMD(1, roll_rate, 0, 0, 0, timestampAndSeqNum=0))
+                time.sleep(0.05)
             
-            for i in range(num_steps):
-                # Calculate angle for circular orbit
-                angle = (2 * math.pi * num_orbits * i) / num_steps
-                # Calculate lateral movement (dy): positive = right, negative = left
-                # Use the derivative of the circular path for smooth movement
-                dy = step_distance * math.cos(angle)  # Lateral movement component
-                # moveBy: (dx=0 forward/back, dy=lateral, dz=0 up/down, dPsi=0 yaw)
-                # In POI mode, dPsi should be 0 as POI mode handles heading
-                log(f"Step {i+1}/{num_steps}: Moving laterally by {dy:.2f}m")
-                result = drone(moveBy(0.0, dy, 0.0, 0.0)).wait(_timeout=2.0)
-                if not result.success():
-                    log(f"Warning: moveBy step {i+1} may not have completed: {result.explain()}")
-                time.sleep(0.1)  # Small delay between movements
-            
-            log("Orbit completed")
+            # Stop movement
+            drone(PCMD(0, 0, 0, 0, 0, timestampAndSeqNum=0))
+            log("Rotation completed")
             
             # Stop POI mode
             log("Stopping POI mode...")
