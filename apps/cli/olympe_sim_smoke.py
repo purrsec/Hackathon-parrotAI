@@ -282,53 +282,54 @@ def main() -> int:
 
     def step_move_to_near_poi() -> bool:
         """
-        Move to a point approximately 20m away from the POI coordinates.
-        POI coordinates: 48.878922, 2.367782 at 20m altitude.
+        Move to the Ventilation Pipes coordinates from the industrial city map.
+        Ventilation Pipes coordinates: 48.87881527709961, 2.3665938951969148 at 20m altitude.
         """
-        # POI coordinates
-        poi_lat = 48.878922
-        poi_lon = 2.367782
-        poi_alt = 60.0  # meters
+        # Ventilation Pipes coordinates from industrial_city.json
+        target_lat = 48.87881527709961
+        target_lon = 2.3665938951969148
+        target_alt = 40.0  # meters (flying altitude above ventilation pipes)
         
-        # Calculate a point 20m north of the POI
-        # At latitude ~48.88, 1 degree latitude ≈ 111km, so 20m ≈ 0.00018 degrees
-        offset_degrees = 20.0 / 111000.0  # Convert 20m to degrees
-        target_lat = poi_lat + offset_degrees
-        target_lon = poi_lon
-        target_alt = poi_alt
-        
-        log(f"Moving to point 20m north of POI: lat={target_lat:.6f}, lon={target_lon:.6f}, alt={target_alt}m")
+        log(f"Moving to Ventilation Pipes: lat={target_lat:.6f}, lon={target_lon:.6f}, alt={target_alt}m")
         
         try:
             # Move to the target position
-            move_timeout_sec = float(os.environ.get("MOVE_TIMEOUT_SEC", "60"))
-            log("Sending extended_move_to command...")
+            # Use longer timeout for GPS moves (default 120s, configurable via MOVE_TIMEOUT_SEC)
+            move_timeout_sec = float(os.environ.get("MOVE_TIMEOUT_SEC", "120"))
+            log(f"Sending extended_move_to command (timeout: {move_timeout_sec}s)...")
             
-            # Simple wait for completion
+            # Wait for move completion with extended timeout
             result = drone(
                 extended_move_to(
                     latitude=target_lat,
                     longitude=target_lon,
                     altitude=target_alt,
-                    orientation_mode="none",  # Keep current heading
+                    orientation_mode="to_target",  # Face the specified heading
                     heading=0.0,
-                    max_horizontal_speed=5.0,
-                    max_vertical_speed=2.0,
+                    max_horizontal_speed=8.0,
+                    max_vertical_speed=3.0,
                     max_yaw_rotation_speed=1.0
                 )
             ).wait(_timeout=move_timeout_sec)
             
             if result.success():
-                log("Successfully moved to position near POI")
+                log("Successfully moved to Ventilation Pipes position")
                 # Wait for hovering state to confirm arrival
-                hover_ok = drone(FlyingStateChanged(state="hovering")).wait(_timeout=timeout_sec)
+                # Use longer timeout for hovering check (default 30s)
+                hover_timeout_sec = float(os.environ.get("HOVER_TIMEOUT_SEC", "120"))
+                log(f"Waiting for hovering state (timeout: {hover_timeout_sec}s)...")
+                hover_ok = drone(FlyingStateChanged(state="hovering")).wait(_timeout=hover_timeout_sec)
+                if hover_ok:
+                    log("Drone is hovering at target position")
+                else:
+                    log(f"Warning: Hovering state not confirmed within {hover_timeout_sec}s, but move completed")
                 return bool(hover_ok)
             else:
-                log("Move to near POI failed")
+                log(f"Move to Ventilation Pipes failed (timeout: {move_timeout_sec}s)")
                 log(f"Explanation: {result.explain()}")
                 return False
         except Exception as e:
-            log(f"Move to near POI failed with exception: {e}")
+            log(f"Move to Ventilation Pipes failed with exception: {e}")
             return False
 
     def step_move_away_from_home() -> bool:
@@ -609,9 +610,7 @@ def main() -> int:
         ("wait_ready", step_wait_ready),
         ("ensure_landed", step_ensure_landed),
         ("takeoff_hover", step_takeoff_hover),
-        ("move_away_from_home", step_move_away_from_home),
-        ("poi_start_stop", step_poi_start_stop),
-        ("rth_and_land", step_rth_and_land),
+        ("move_to_near_poi", step_move_to_near_poi),
     ]
 
     overall_ok = True

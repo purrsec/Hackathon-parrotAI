@@ -1,0 +1,70 @@
+{
+  "name": "Industrial City",
+  "description": "Industrial city map with factories, warehouses, and industrial infrastructure",
+  "starting_position": {
+    "coordinates": {
+      "latitude": 48.87991994804089,
+      "longitude": 2.369160096117185,
+      "altitude_meters": 1
+    },
+    "description": "Starting position at industrial facility"
+  },
+  "location": {
+    "name": "Industrial City",
+    "country": "FR",
+    "terrain_type": "urban",
+    "elevation_meters": 1.0
+  },
+  "points_of_interest": [
+    {
+      "name": "Advertising Board",
+      "type": "structure",
+      "coordinates": {
+        "latitude": 48.87882157897949,
+        "longitude": 2.368181582689285,
+        "altitude_meters": 19.0
+      },
+      "description": "Advertising board at 19m height"
+    },
+    {
+      "name": "Ventilation Pipes",
+      "type": "structure",
+      "coordinates": {
+        "latitude": 48.87881527709961,
+        "longitude": 2.3665938951969148,
+        "altitude_meters": 20.0
+      },
+      "description": "Set of ventilation pipes on a building"
+    }
+  ],
+  "boundaries": [
+    {
+      "name": "Obstacle Box 1",
+      "type": "restricted",
+      "boundary_type": "polygon",
+      "coordinates": [
+        [
+          48.879889297485356,
+          2.366292452812195
+        ],
+        [
+          48.87797622680664,
+          2.3663865683078766
+        ],
+        [
+          48.87794021606445,
+          2.3691022777557373
+        ],
+        [
+          48.87979476928711,
+          2.369193665266037
+        ]
+      ],
+      "max_altitude_meters": 15.0,
+      "description": "Obstacle box between 0-15m altitude"
+    }
+  ],
+  "obstacles": [],
+  "default_max_altitude_meters": 80.0,
+  "default_max_distance_meters": 2000.0
+}
