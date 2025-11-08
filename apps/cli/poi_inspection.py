@@ -179,7 +179,7 @@ def main() -> int:
                     altitude=midpoint_alt,
                     orientation_mode="to_target",
                     heading=0.0,
-                    max_horizontal_speed=8.0,
+                    max_horizontal_speed=20.0,
                     max_vertical_speed=3.0,
                     max_yaw_rotation_speed=1.0
                 )
@@ -187,7 +187,7 @@ def main() -> int:
             
             if result.success():
                 log("Successfully moved to midpoint")
-                hover_ok = drone(FlyingStateChanged(state="hovering")).wait(_timeout=timeout_sec)
+                hover_ok = drone(FlyingStateChanged(state="hovering")).wait(_timeout=130)
                 return bool(hover_ok)
             else:
                 log(f"Move to midpoint failed: {result.explain()}")
@@ -208,7 +208,7 @@ def main() -> int:
                     altitude=flight_alt,
                     orientation_mode="to_target",
                     heading=0.0,
-                    max_horizontal_speed=8.0,
+                    max_horizontal_speed=20.0,
                     max_vertical_speed=3.0,
                     max_yaw_rotation_speed=1.0
                 )
@@ -216,7 +216,7 @@ def main() -> int:
             
             if result.success():
                 log("Successfully moved to Ventilation Pipes position")
-                hover_ok = drone(FlyingStateChanged(state="hovering")).wait(_timeout=timeout_sec)
+                hover_ok = drone(FlyingStateChanged(state="hovering")).wait(_timeout=130)
                 if hover_ok:
                     log("Drone is hovering at Ventilation Pipes")
                 return bool(hover_ok)
@@ -239,7 +239,7 @@ def main() -> int:
                     altitude=flight_alt,
                     orientation_mode="to_target",
                     heading=0.0,
-                    max_horizontal_speed=8.0,
+                    max_horizontal_speed=20.0,
                     max_vertical_speed=3.0,
                     max_yaw_rotation_speed=1.0
                 )
@@ -247,7 +247,7 @@ def main() -> int:
             
             if result.success():
                 log("Successfully moved to Advertising Board position")
-                hover_ok = drone(FlyingStateChanged(state="hovering")).wait(_timeout=timeout_sec)
+                hover_ok = drone(FlyingStateChanged(state="hovering")).wait(_timeout=130)
                 if hover_ok:
                     log("Drone is hovering at Advertising Board")
                 return bool(hover_ok)
