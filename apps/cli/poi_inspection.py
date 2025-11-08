@@ -272,16 +272,22 @@ def main() -> int:
             except Exception:
                 log("WARNING: POI state unavailable")
             
-            # Rotate around the POI using PCMD
+            # Orbit around the POI using only roll (lateral strafe)
             # PCMD parameters: (flag, roll, pitch, yaw, gaz, timestamp)
-            # Positive yaw rotates counter-clockwise (left)
-            log("Rotating around Ventilation Pipes POI...")
+            # In POI mode, drone faces POI, so we strafe left/right in a circle using only roll
+            log("Orbiting around Ventilation Pipes POI...")
             rotation_duration = 15.0  # seconds
             rotation_steps = int(rotation_duration * 20)  # 20 Hz command rate
-            yaw_rate = -20  # Negative for clockwise rotation (right)
+            strafe_speed = 15  # Speed for strafe movement
+            num_orbits = 1.0  # Number of full circles
             
             for i in range(rotation_steps):
-                drone(PCMD(1, 0, 0, yaw_rate, 0, timestampAndSeqNum=0))
+                # Calculate angle for circular orbit
+                angle = (2 * math.pi * num_orbits * i) / rotation_steps
+                # Roll (left/right strafe): positive = right, negative = left
+                roll = int(strafe_speed * math.cos(angle))
+                # Send strafe command (pitch=0, yaw=0 since POI mode handles heading)
+                drone(PCMD(1, roll, 0, 0, 0, timestampAndSeqNum=0))
                 time.sleep(0.05)
             
             # Stop movement
@@ -366,14 +372,22 @@ def main() -> int:
             except Exception:
                 log("WARNING: POI state unavailable")
             
-            # Rotate around the POI using PCMD
-            log("Rotating around Advertising Board POI...")
+            # Orbit around the POI using only roll (lateral strafe)
+            # PCMD parameters: (flag, roll, pitch, yaw, gaz, timestamp)
+            # In POI mode, drone faces POI, so we strafe left/right in a circle using only roll
+            log("Orbiting around Advertising Board POI...")
             rotation_duration = 15.0  # seconds
             rotation_steps = int(rotation_duration * 20)  # 20 Hz command rate
-            yaw_rate = -20  # Negative for clockwise rotation (right)
+            strafe_speed = 15  # Speed for strafe movement
+            num_orbits = 1.0  # Number of full circles
             
             for i in range(rotation_steps):
-                drone(PCMD(1, 0, 0, yaw_rate, 0, timestampAndSeqNum=0))
+                # Calculate angle for circular orbit
+                angle = (2 * math.pi * num_orbits * i) / rotation_steps
+                # Roll (left/right strafe): positive = right, negative = left
+                roll = int(strafe_speed * math.cos(angle))
+                # Send strafe command (pitch=0, yaw=0 since POI mode handles heading)
+                drone(PCMD(1, roll, 0, 0, 0, timestampAndSeqNum=0))
                 time.sleep(0.05)
             
             # Stop movement
