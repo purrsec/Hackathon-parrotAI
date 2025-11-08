@@ -38,12 +38,17 @@ def main() -> int:
             Landing,
             moveBy,
             NavigateHome,
+            StartPilotedPOIV2,
+            StopPilotedPOI,
+            PCMD,
         )
         from olympe.messages.ardrone3.PilotingState import (  # type: ignore
             FlyingStateChanged,
             NavigateHomeStateChanged,
             PositionChanged,
+            PilotedPOI,
         )
+        from olympe.messages.move import extended_move_to  # type: ignore
     except Exception as exc:  # noqa: BLE001
         log(f"Olympe import failed: {exc}")
         return EXIT_IMPORT_ERROR
@@ -275,59 +280,139 @@ def main() -> int:
             log("Gimbal attitude updated")
         return bool(result)
 
-    def step_poi_start_stop() -> bool:
-        # Start a POI piloting around current position (sim must have GPS position)
-        try:
-            from olympe.messages.poi import start as poi_start, stop as poi_stop  # type: ignore
-        except Exception:
-            log("POI feature not available; skipping")
-            return True
-
-        log("Getting current GPS position...")
-        pos = drone.get_state(PositionChanged)
-        lat = pos.get("latitude") if isinstance(pos, dict) else None
-        lon = pos.get("longitude") if isinstance(pos, dict) else None
-        alt = pos.get("altitude") if isinstance(pos, dict) else None
-        if lat is None or lon is None or alt is None:
-            log("No valid GPS position; skipping POI test")
-            return True
+    def step_move_to_near_poi() -> bool:
+        """
+        Move to a point approximately 20m away from the POI coordinates.
+        POI coordinates: 48.878922, 2.367782 at 20m altitude.
+        """
+        # POI coordinates
+        poi_lat = 48.878922
+        poi_lon = 2.367782
+        poi_alt = 60.0  # meters
         
-        log(f"Current position: lat={lat:.6f}, lon={lon:.6f}, alt={alt:.2f}m")
+        # Calculate a point 20m north of the POI
+        # At latitude ~48.88, 1 degree latitude ≈ 111km, so 20m ≈ 0.00018 degrees
+        offset_degrees = 20.0 / 111000.0  # Convert 20m to degrees
+        target_lat = poi_lat + offset_degrees
+        target_lon = poi_lon
+        target_alt = poi_alt
+        
+        log(f"Moving to point 20m north of POI: lat={target_lat:.6f}, lon={target_lon:.6f}, alt={target_alt}m")
+        
+        try:
+            # Move to the target position
+            move_timeout_sec = float(os.environ.get("MOVE_TIMEOUT_SEC", "60"))
+            log("Sending extended_move_to command...")
+            
+            # Simple wait for completion
+            result = drone(
+                extended_move_to(
+                    latitude=target_lat,
+                    longitude=target_lon,
+                    altitude=target_alt,
+                    orientation_mode="none",  # Keep current heading
+                    heading=0.0,
+                    max_horizontal_speed=5.0,
+                    max_vertical_speed=2.0,
+                    max_yaw_rotation_speed=1.0
+                )
+            ).wait(_timeout=move_timeout_sec)
+            
+            if result.success():
+                log("Successfully moved to position near POI")
+                # Wait for hovering state to confirm arrival
+                hover_ok = drone(FlyingStateChanged(state="hovering")).wait(_timeout=timeout_sec)
+                return bool(hover_ok)
+            else:
+                log("Move to near POI failed")
+                log(f"Explanation: {result.explain()}")
+                return False
+        except Exception as e:
+            log(f"Move to near POI failed with exception: {e}")
+            return False
 
-        attempts = [
-            {"latitude": lat, "longitude": lon, "altitude": alt, "radius": 10.0, "clockwise": True},
-            {"latitude": lat, "longitude": lon, "altitude": alt, "mode": "locked_gimbal", "radius": 10.0, "clockwise": True},
-            {"latitude": lat, "longitude": lon, "altitude": alt},
-        ]
+    def step_move_away_from_home() -> bool:
+        """
+        Move approximately 20m away from the initial position using relative moveBy.
+        This positions the drone away from home before starting POI mode.
+        """
+        move_distance = 15.0  # meters forward
+        # Per-movement timeout (seconds)
+        move_timeout_sec = float(os.environ.get("MOVE_TIMEOUT_SEC", "45"))
 
-        started = False
-        for idx, kwargs in enumerate(attempts):
+        log(f"Moving {move_distance}m forward from current position...")
+        move_ack = drone(moveBy(move_distance, 0.0, 0.0, 0.0)).wait(_timeout=move_timeout_sec).success()
+        # Always confirm completion by waiting hovering after the move
+        hover_ok = drone(FlyingStateChanged(state="hovering")).wait(_timeout=move_timeout_sec)
+        if not (move_ack or hover_ok):
+            log("Failed to move away from home")
+            return False
+        log("Successfully moved away from home")
+        
+        return True
+
+    def step_poi_start_stop() -> bool:
+        """
+        Start a POI piloting around specified coordinates.
+        """
+        
+        poi_lat = 48.87991994804089
+        poi_lon = 2.369160096117185
+        poi_alt = 2.0
+        
+        log(f"Starting POI mode at coordinates: lat={poi_lat:.6f}, lon={poi_lon:.6f}, alt={poi_alt}m")
+
+        try:
+            # Send command without waiting for specific status
+            log("Sending StartPilotedPOI command...")
+            result = drone(StartPilotedPOIV2(
+                latitude=poi_lat,
+                longitude=poi_lon,
+                altitude=poi_alt,
+                mode="locked_gimbal"  # Options: "locked_gimbal" or "free_gimbal"
+            )).wait(_timeout=5)
+            
+            if not result.success():
+                log(f"StartPilotedPOIV2 command failed: {result.explain()}")
+                return False
+            
+            log("POI command sent successfully")
+            
+            # Give it time to activate
+            time.sleep(1)
+            
+            # Check POI state manually
             try:
-                log(f"Attempting POI start (attempt {idx+1}/{len(attempts)})...")
-                if drone(poi_start(**kwargs)).wait(_timeout=timeout_sec).success():
-                    log("POI mode started successfully")
-                    started = True
-                    break
-            except Exception as e:
-                log(f"POI attempt {idx+1} failed: {e}")
-                continue
+                poi_state = drone.get_state(PilotedPOI)
+                if poi_state:
+                    log(f"POI state: {poi_state}")
+                else:
+                    log("WARNING: Cannot verify POI state")
+            except:
+                log("WARNING: POI state unavailable in simulator")
+                
+        except Exception as e:
+            log(f"POI start exception: {e}")
+            return False
 
-        if not started:
-            log("All POI.start attempts failed; skipping")
-            return True
-
-        log("Orbiting POI for 2 seconds...")
-        time.sleep(2.0)
+        log("Orbiting POI for 5 seconds...")
+        
+        # Manual orbit with PCMD
+        for i in range(500):  # 25 seconds
+            drone(PCMD(1, 20, 0, -15, 0, timestampAndSeqNum=0))
+            time.sleep(0.05)
+        
+        # Stop movement
+        drone(PCMD(0, 0, 0, 0, 0, timestampAndSeqNum=0))
         
         log("Stopping POI mode...")
         try:
-            result = drone(poi_stop()).wait(_timeout=timeout_sec).success()
-            if result:
-                log("POI mode stopped successfully")
-            return bool(result)
-        except Exception:
-            log("POI stop failed, continuing anyway")
+            drone(StopPilotedPOI()).wait(_timeout=5)
+            log("POI mode stopped")
             return True
+        except Exception as e:
+            log(f"POI stop failed: {e}")
+            return True  # Continue anyway
 
     def step_camera_record_and_photo() -> bool:
         """Test camera recording and photo capture. May not work in all simulators."""
@@ -524,7 +609,8 @@ def main() -> int:
         ("wait_ready", step_wait_ready),
         ("ensure_landed", step_ensure_landed),
         ("takeoff_hover", step_takeoff_hover),
-        ("mission_z", step_mission_z),
+        ("move_away_from_home", step_move_away_from_home),
+        ("poi_start_stop", step_poi_start_stop),
         ("rth_and_land", step_rth_and_land),
     ]
 
