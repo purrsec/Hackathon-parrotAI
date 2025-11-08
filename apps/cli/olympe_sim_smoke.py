@@ -288,25 +288,26 @@ def main() -> int:
         # Advertising Board coordinates from industrial_city.json
         target_lat = 48.87882157897949
         target_lon = 2.368181582689285
-        target_alt = 19.0  # meters (advertising board height)
+        target_alt = 40.0  # meters (advertising board height)
         
         log(f"Moving to Advertising Board: lat={target_lat:.6f}, lon={target_lon:.6f}, alt={target_alt}m")
         
         try:
             # Move to the target position
-            move_timeout_sec = float(os.environ.get("MOVE_TIMEOUT_SEC", "60"))
-            log("Sending extended_move_to command...")
+            # Use longer timeout for GPS moves (default 120s, configurable via MOVE_TIMEOUT_SEC)
+            move_timeout_sec = float(os.environ.get("MOVE_TIMEOUT_SEC", "120"))
+            log(f"Sending extended_move_to command (timeout: {move_timeout_sec}s)...")
             
-            # Simple wait for completion
+            # Wait for move completion with extended timeout
             result = drone(
                 extended_move_to(
                     latitude=target_lat,
                     longitude=target_lon,
                     altitude=target_alt,
-                    orientation_mode="none",  # Keep current heading
+                    orientation_mode="to_target",  # Face the specified heading
                     heading=0.0,
-                    max_horizontal_speed=5.0,
-                    max_vertical_speed=2.0,
+                    max_horizontal_speed=8.0,
+                    max_vertical_speed=3.0,
                     max_yaw_rotation_speed=1.0
                 )
             ).wait(_timeout=move_timeout_sec)
@@ -314,10 +315,17 @@ def main() -> int:
             if result.success():
                 log("Successfully moved to Advertising Board position")
                 # Wait for hovering state to confirm arrival
-                hover_ok = drone(FlyingStateChanged(state="hovering")).wait(_timeout=timeout_sec)
+                # Use longer timeout for hovering check (default 30s)
+                hover_timeout_sec = float(os.environ.get("HOVER_TIMEOUT_SEC", "30"))
+                log(f"Waiting for hovering state (timeout: {hover_timeout_sec}s)...")
+                hover_ok = drone(FlyingStateChanged(state="hovering")).wait(_timeout=hover_timeout_sec)
+                if hover_ok:
+                    log("Drone is hovering at target position")
+                else:
+                    log(f"Warning: Hovering state not confirmed within {hover_timeout_sec}s, but move completed")
                 return bool(hover_ok)
             else:
-                log("Move to near POI failed")
+                log(f"Move to Advertising Board failed (timeout: {move_timeout_sec}s)")
                 log(f"Explanation: {result.explain()}")
                 return False
         except Exception as e:

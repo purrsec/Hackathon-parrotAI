@@ -43,7 +43,6 @@ The world map is a JSON object that provides:
         "longitude": 2.2945,
         "altitude_meters": 0.0
       },
-      "height_meters": 330.0,
       "description": "Eiffel Tower - iconic Paris landmark"
     }
   ],
