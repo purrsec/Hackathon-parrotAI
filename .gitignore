@@ -57,6 +57,7 @@ Thumbs.db
 .env.development
 .env.production
 .env.test
+!.env.example
 
 # Optional local outputs
 artifacts/

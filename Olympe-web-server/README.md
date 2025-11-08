@@ -137,10 +137,29 @@ Réinitialiser l'historique du service.
 
 ## Tests
 
-### Test automatique avec Python
+### Lancer les tests
+
+**Avec Python directement:**
 ```bash
 cd Olympe-web-server
-python test_message_gateway.py
+python tests/test_message_gateway.py
+```
+
+**Avec pytest (recommandé):**
+```bash
+cd Olympe-web-server
+pytest tests/
+```
+
+**Avec UV (moderne):**
+```bash
+cd Olympe-web-server
+uv run pytest tests/
+```
+
+**Test d'un fichier spécifique:**
+```bash
+pytest tests/test_message_gateway.py -v
 ```
 
 ### Test WebSocket (avec websocat)
