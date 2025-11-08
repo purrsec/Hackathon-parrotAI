@@ -1,4 +1,4 @@
-ParrotAI Intel Agent — Discord Conversational Interface for Parrot Olympe
+ParrotAI Intel Agent — Discord Conversational Interface for Parrot Olympe 
 ========================================================================
 
 Build a modular, multi-contributor agent that turns natural language into safe and executable flight plans for Parrot ANAFI drones using the Olympe SDK. Users issue plain-language commands via Discord (e.g. `!intel je veux faire un survol autour de la tour DesChamps puis reviens`) and the system parses, plans, validates, and executes the mission in simulation or on a real drone.
