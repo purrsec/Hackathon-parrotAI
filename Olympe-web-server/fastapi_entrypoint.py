@@ -20,8 +20,9 @@ Note: FastAPI NE FAIT PAS l'exécution Olympe, juste la réception des messages.
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Dict, Any, Optional, Literal
+from contextlib import asynccontextmanager
 import json
 import time
 import logging
@@ -38,12 +39,45 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ============================================================================
+# Lifespan - Startup/Shutdown avec contexte moderne
+# ============================================================================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Gestion du cycle de vie de l'application avec lifespan context manager.
+    
+    Cette approche moderne remplace @app.on_event("startup") et @app.on_event("shutdown").
+    """
+    # Startup
+    logger.info("=" * 80)
+    logger.info("🚀 FastAPI Message Gateway - Starting up")
+    logger.info("=" * 80)
+    logger.info("📋 Rôle: Réception de messages en langage naturel")
+    logger.info("   - WebSocket: /ws")
+    logger.info("   - REST API: POST /message")
+    logger.info("   - Health: GET /health")
+    logger.info("=" * 80)
+    logger.info("📌 Note: Le traitement (NLP → Olympe) sera fait")
+    logger.info("         par un module Python séparé")
+    logger.info("=" * 80)
+    
+    yield  # L'application tourne
+    
+    # Shutdown
+    logger.info("=" * 80)
+    logger.info("🛑 FastAPI Message Gateway - Shutting down")
+    logger.info(f"   Total messages reçus: {len(message_history)}")
+    logger.info("=" * 80)
+
+# ============================================================================
 # Application FastAPI
 # ============================================================================
 app = FastAPI(
     title="Parrot Drone Controller API",
     description="WebSocket + REST API pour contrôler un drone Parrot via Olympe",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # CORS - Autoriser les requêtes depuis le front Next.js
@@ -91,14 +125,16 @@ class UserMessage(BaseModel):
         description="Métadonnées additionnelles (channel, timestamp, etc.)"
     )
     
-    @validator('id')
-    def id_not_empty(cls, v):
+    @field_validator('id')
+    @classmethod
+    def id_not_empty(cls, v: str) -> str:
         if not v or not v.strip():
             raise ValueError('id ne peut pas être vide')
         return v.strip()
     
-    @validator('message')
-    def message_not_empty(cls, v):
+    @field_validator('message')
+    @classmethod
+    def message_not_empty(cls, v: str) -> str:
         if not v or not v.strip():
             raise ValueError('message ne peut pas être vide')
         return v.strip()
@@ -444,42 +480,6 @@ async def reset_service():
         "message": "Message history cleared",
         "timestamp": datetime.now().isoformat()
     }
-
-
-# ============================================================================
-# Lifecycle - Startup/Shutdown
-# ============================================================================
-
-@app.on_event("startup")
-async def on_startup():
-    """
-    Initialisation au démarrage du service.
-    
-    Ce service ne fait QUE recevoir les messages.
-    Le traitement sera fait par un autre module Python.
-    """
-    logger.info("=" * 80)
-    logger.info("🚀 FastAPI Message Gateway - Starting up")
-    logger.info("=" * 80)
-    logger.info("📋 Rôle: Réception de messages en langage naturel")
-    logger.info("   - WebSocket: /ws")
-    logger.info("   - REST API: POST /message")
-    logger.info("   - Health: GET /health")
-    logger.info("=" * 80)
-    logger.info("📌 Note: Le traitement (NLP → Olympe) sera fait")
-    logger.info("         par un module Python séparé")
-    logger.info("=" * 80)
-
-
-@app.on_event("shutdown")
-async def on_shutdown():
-    """
-    Nettoyage à l'arrêt du service.
-    """
-    logger.info("=" * 80)
-    logger.info("🛑 FastAPI Message Gateway - Shutting down")
-    logger.info(f"   Total messages reçus: {len(message_history)}")
-    logger.info("=" * 80)
 
 
 # ============================================================================
