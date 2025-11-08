@@ -282,22 +282,15 @@ def main() -> int:
 
     def step_move_to_near_poi() -> bool:
         """
-        Move to a point approximately 20m away from the POI coordinates.
-        POI coordinates: 48.878922, 2.367782 at 20m altitude.
+        Move to the Advertising Board coordinates from the industrial city map.
+        Advertising Board coordinates: 48.87882157897949, 2.368181582689285 at 19m altitude.
         """
-        # POI coordinates
-        poi_lat = 48.878922
-        poi_lon = 2.367782
-        poi_alt = 60.0  # meters
+        # Advertising Board coordinates from industrial_city.json
+        target_lat = 48.87882157897949
+        target_lon = 2.368181582689285
+        target_alt = 19.0  # meters (advertising board height)
         
-        # Calculate a point 20m north of the POI
-        # At latitude ~48.88, 1 degree latitude ≈ 111km, so 20m ≈ 0.00018 degrees
-        offset_degrees = 20.0 / 111000.0  # Convert 20m to degrees
-        target_lat = poi_lat + offset_degrees
-        target_lon = poi_lon
-        target_alt = poi_alt
-        
-        log(f"Moving to point 20m north of POI: lat={target_lat:.6f}, lon={target_lon:.6f}, alt={target_alt}m")
+        log(f"Moving to Advertising Board: lat={target_lat:.6f}, lon={target_lon:.6f}, alt={target_alt}m")
         
         try:
             # Move to the target position
@@ -319,7 +312,7 @@ def main() -> int:
             ).wait(_timeout=move_timeout_sec)
             
             if result.success():
-                log("Successfully moved to position near POI")
+                log("Successfully moved to Advertising Board position")
                 # Wait for hovering state to confirm arrival
                 hover_ok = drone(FlyingStateChanged(state="hovering")).wait(_timeout=timeout_sec)
                 return bool(hover_ok)
@@ -609,9 +602,7 @@ def main() -> int:
         ("wait_ready", step_wait_ready),
         ("ensure_landed", step_ensure_landed),
         ("takeoff_hover", step_takeoff_hover),
-        ("move_away_from_home", step_move_away_from_home),
-        ("poi_start_stop", step_poi_start_stop),
-        ("rth_and_land", step_rth_and_land),
+        ("move_to_near_poi", step_move_to_near_poi),
     ]
 
     overall_ok = True
