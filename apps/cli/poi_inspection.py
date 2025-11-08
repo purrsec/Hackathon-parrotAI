@@ -37,9 +37,13 @@ def main() -> int:
             TakeOff,
             Landing,
             NavigateHome,
+            StartPilotedPOIV2,
+            StopPilotedPOI,
+            PCMD,
         )
         from olympe.messages.ardrone3.PilotingState import (  # type: ignore
             FlyingStateChanged,
+            PilotedPOI,
         )
         from olympe.messages.move import extended_move_to  # type: ignore
     except Exception as exc:  # noqa: BLE001
@@ -73,6 +77,18 @@ def main() -> int:
     
     # Flight altitude for inspection (above structures)
     flight_alt = 40.0  # meters
+    
+    # Offset distance for POI viewing (meters) - drone position offset from POI for good camera angle
+    poi_offset_distance = 12.0  # meters
+    # At latitude ~48.88, 1 degree ≈ 111km, so 12m ≈ 0.000108 degrees
+    offset_degrees = poi_offset_distance / 111000.0
+    
+    # Calculate offset positions (north of POI for viewing)
+    ventilation_offset_lat = ventilation_lat + offset_degrees
+    ventilation_offset_lon = ventilation_lon
+    
+    advertising_offset_lat = advertising_lat + offset_degrees
+    advertising_offset_lon = advertising_lon
 
     drone = Drone(drone_ip)
     connected = False
@@ -197,14 +213,14 @@ def main() -> int:
             return False
 
     def step_move_to_ventilation_pipes() -> bool:
-        """Move to Ventilation Pipes POI."""
-        log(f"Moving to Ventilation Pipes: lat={ventilation_lat:.6f}, lon={ventilation_lon:.6f}, alt={flight_alt}m")
+        """Move to offset position near Ventilation Pipes POI for viewing."""
+        log(f"Moving to offset position near Ventilation Pipes: lat={ventilation_offset_lat:.6f}, lon={ventilation_offset_lon:.6f}, alt={flight_alt}m")
         
         try:
             result = drone(
                 extended_move_to(
-                    latitude=ventilation_lat,
-                    longitude=ventilation_lon,
+                    latitude=ventilation_offset_lat,
+                    longitude=ventilation_offset_lon,
                     altitude=flight_alt,
                     orientation_mode="to_target",
                     heading=0.0,
@@ -215,27 +231,90 @@ def main() -> int:
             ).wait(_timeout=move_timeout_sec)
             
             if result.success():
-                log("Successfully moved to Ventilation Pipes position")
+                log("Successfully moved to offset position near Ventilation Pipes")
                 hover_ok = drone(FlyingStateChanged(state="hovering")).wait(_timeout=130)
                 if hover_ok:
-                    log("Drone is hovering at Ventilation Pipes")
+                    log("Drone is hovering at offset position")
                 return bool(hover_ok)
             else:
-                log(f"Move to Ventilation Pipes failed: {result.explain()}")
+                log(f"Move to Ventilation Pipes offset failed: {result.explain()}")
                 return False
         except Exception as e:
-            log(f"Move to Ventilation Pipes failed with exception: {e}")
+            log(f"Move to Ventilation Pipes offset failed with exception: {e}")
+            return False
+
+    def step_poi_inspect_ventilation_pipes() -> bool:
+        """Start POI mode and rotate around Ventilation Pipes for inspection."""
+        log(f"Starting POI mode at Ventilation Pipes: lat={ventilation_lat:.6f}, lon={ventilation_lon:.6f}, alt={ventilation_alt}m")
+        
+        try:
+            # Start POI mode at the actual POI location
+            log("Sending StartPilotedPOIV2 command...")
+            result = drone(StartPilotedPOIV2(
+                latitude=ventilation_lat,
+                longitude=ventilation_lon,
+                altitude=ventilation_alt,
+                mode="locked_gimbal"  # Keep gimbal locked on POI
+            )).wait(_timeout=5)
+            
+            if not result.success():
+                log(f"StartPilotedPOIV2 command failed: {result.explain()}")
+                return False
+            
+            log("POI mode started successfully")
+            time.sleep(1)  # Give it time to activate
+            
+            # Check POI state
+            try:
+                poi_state = drone.get_state(PilotedPOI)
+                if poi_state:
+                    log(f"POI state: {poi_state}")
+            except Exception:
+                log("WARNING: POI state unavailable")
+            
+            # Rotate around the POI using PCMD
+            # PCMD parameters: (flag, roll, pitch, yaw, gaz, timestamp)
+            # Positive yaw rotates counter-clockwise (left)
+            log("Rotating around Ventilation Pipes POI...")
+            rotation_duration = 15.0  # seconds
+            rotation_steps = int(rotation_duration * 20)  # 20 Hz command rate
+            yaw_rate = -20  # Negative for clockwise rotation (right)
+            
+            for i in range(rotation_steps):
+                drone(PCMD(1, 0, 0, yaw_rate, 0, timestampAndSeqNum=0))
+                time.sleep(0.05)
+            
+            # Stop movement
+            drone(PCMD(0, 0, 0, 0, 0, timestampAndSeqNum=0))
+            log("Rotation completed")
+            
+            # Stop POI mode
+            log("Stopping POI mode...")
+            try:
+                drone(StopPilotedPOI()).wait(_timeout=5)
+                log("POI mode stopped")
+            except Exception as e:
+                log(f"POI stop warning: {e}")
+            
+            return True
+        except Exception as e:
+            log(f"POI inspection failed with exception: {e}")
+            # Try to stop POI mode even if there was an error
+            try:
+                drone(StopPilotedPOI()).wait(_timeout=5)
+            except Exception:
+                pass
             return False
 
     def step_move_to_advertising_board() -> bool:
-        """Move to Advertising Board POI."""
-        log(f"Moving to Advertising Board: lat={advertising_lat:.6f}, lon={advertising_lon:.6f}, alt={flight_alt}m")
+        """Move to offset position near Advertising Board POI for viewing."""
+        log(f"Moving to offset position near Advertising Board: lat={advertising_offset_lat:.6f}, lon={advertising_offset_lon:.6f}, alt={flight_alt}m")
         
         try:
             result = drone(
                 extended_move_to(
-                    latitude=advertising_lat,
-                    longitude=advertising_lon,
+                    latitude=advertising_offset_lat,
+                    longitude=advertising_offset_lon,
                     altitude=flight_alt,
                     orientation_mode="to_target",
                     heading=0.0,
@@ -246,16 +325,77 @@ def main() -> int:
             ).wait(_timeout=move_timeout_sec)
             
             if result.success():
-                log("Successfully moved to Advertising Board position")
+                log("Successfully moved to offset position near Advertising Board")
                 hover_ok = drone(FlyingStateChanged(state="hovering")).wait(_timeout=130)
                 if hover_ok:
-                    log("Drone is hovering at Advertising Board")
+                    log("Drone is hovering at offset position")
                 return bool(hover_ok)
             else:
-                log(f"Move to Advertising Board failed: {result.explain()}")
+                log(f"Move to Advertising Board offset failed: {result.explain()}")
                 return False
         except Exception as e:
-            log(f"Move to Advertising Board failed with exception: {e}")
+            log(f"Move to Advertising Board offset failed with exception: {e}")
+            return False
+
+    def step_poi_inspect_advertising_board() -> bool:
+        """Start POI mode and rotate around Advertising Board for inspection."""
+        log(f"Starting POI mode at Advertising Board: lat={advertising_lat:.6f}, lon={advertising_lon:.6f}, alt={advertising_alt}m")
+        
+        try:
+            # Start POI mode at the actual POI location
+            log("Sending StartPilotedPOIV2 command...")
+            result = drone(StartPilotedPOIV2(
+                latitude=advertising_lat,
+                longitude=advertising_lon,
+                altitude=advertising_alt,
+                mode="locked_gimbal"  # Keep gimbal locked on POI
+            )).wait(_timeout=5)
+            
+            if not result.success():
+                log(f"StartPilotedPOIV2 command failed: {result.explain()}")
+                return False
+            
+            log("POI mode started successfully")
+            time.sleep(1)  # Give it time to activate
+            
+            # Check POI state
+            try:
+                poi_state = drone.get_state(PilotedPOI)
+                if poi_state:
+                    log(f"POI state: {poi_state}")
+            except Exception:
+                log("WARNING: POI state unavailable")
+            
+            # Rotate around the POI using PCMD
+            log("Rotating around Advertising Board POI...")
+            rotation_duration = 15.0  # seconds
+            rotation_steps = int(rotation_duration * 20)  # 20 Hz command rate
+            yaw_rate = -20  # Negative for clockwise rotation (right)
+            
+            for i in range(rotation_steps):
+                drone(PCMD(1, 0, 0, yaw_rate, 0, timestampAndSeqNum=0))
+                time.sleep(0.05)
+            
+            # Stop movement
+            drone(PCMD(0, 0, 0, 0, 0, timestampAndSeqNum=0))
+            log("Rotation completed")
+            
+            # Stop POI mode
+            log("Stopping POI mode...")
+            try:
+                drone(StopPilotedPOI()).wait(_timeout=5)
+                log("POI mode stopped")
+            except Exception as e:
+                log(f"POI stop warning: {e}")
+            
+            return True
+        except Exception as e:
+            log(f"POI inspection failed with exception: {e}")
+            # Try to stop POI mode even if there was an error
+            try:
+                drone(StopPilotedPOI()).wait(_timeout=5)
+            except Exception:
+                pass
             return False
 
     def step_rth_and_land() -> bool:
@@ -308,7 +448,9 @@ def main() -> int:
         ("takeoff_hover", step_takeoff_hover),
         ("move_to_midpoint", step_move_to_midpoint),
         ("move_to_ventilation_pipes", step_move_to_ventilation_pipes),
+        ("poi_inspect_ventilation_pipes", step_poi_inspect_ventilation_pipes),
         ("move_to_advertising_board", step_move_to_advertising_board),
+        ("poi_inspect_advertising_board", step_poi_inspect_advertising_board),
         ("rth_and_land", step_rth_and_land),
     ]
 
