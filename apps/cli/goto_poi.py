@@ -194,7 +194,7 @@ def main() -> int:
             return False
         
         log("Waiting for landed state...")
-        if not drone(FlyingStateChanged(state="landed", _timeout=timeout_sec).wait().success():
+        if not drone(FlyingStateChanged(state="landed", _timeout=timeout_sec)).wait().success():
             log("Failed to reach landed state")
             return False
         
