@@ -87,7 +87,7 @@ def main() -> int:
 
     # Configuration
     drone_ip = os.environ.get("DRONE_IP", "10.202.0.1")
-    timeout_sec = float(os.environ.get("TIMEOUT_SEC", "30"))
+    timeout_sec = float(os.environ.get("TIMEOUT_SEC", "60"))
     safe_altitude_m = float(os.environ.get("SAFE_ALT_M", "35.0"))
     poi_name = os.environ.get("POI_NAME", "Ventilation Pipes")
     
@@ -143,6 +143,9 @@ def main() -> int:
         return True
 
     def step_climb_35m() -> bool:
+        from olympe.messages.ardrone3.PilotingState import AltitudeChanged
+        import time
+
         # Ensure speed settings allow our requested per-move caps
         if not drone(MaxVerticalSpeed(4.0)).wait(_timeout=timeout_sec).success():
             log("Failed to set max vertical speed to 4.0 m/s")
@@ -151,32 +154,53 @@ def main() -> int:
             log("Failed to set max rotation speed to 90 deg/s")
             return False
 
-        log(f"Climbing to {safe_altitude_m}m with max vertical speed 4 m/s...")
-        # dZ is negative for upward movement
-        # Use extended_move_by to specify max_vertical_speed directly
-        result = drone(
+        # Determine current altitude and target delta to reach absolute safe_altitude_m
+        state = drone.get_state(AltitudeChanged)
+        current_alt = state.get("altitude", 0.0) if state is not None else 0.0
+        if current_alt >= safe_altitude_m - 0.5:
+            log(f"Already at or above safe altitude ({current_alt:.1f}m)")
+            return True
+
+        climb_delta = max(0.5, safe_altitude_m - current_alt)
+        log(f"Climbing from {current_alt:.1f}m to {safe_altitude_m:.1f}m "
+            f"(delta {climb_delta:.1f}m) with max vertical speed 4 m/s...")
+
+        # Send the move and wait briefly for ack; completion is checked by polling altitude
+        ack_ok = drone(
             extended_move_by(
                 d_x=0.0,
                 d_y=0.0,
-                d_z=-safe_altitude_m,
+                d_z=-climb_delta,               # negative is up
                 d_psi=0.0,
                 max_horizontal_speed=0.5,
                 max_vertical_speed=4.0,
                 max_yaw_rotation_speed=20.0
             )
-        ).wait(_timeout=timeout_sec * 3).success()
-        
-        if not result:
-            log(f"Failed to climb to {safe_altitude_m}m")
-            return False
-        
-        # Wait for drone to stabilize in hovering
-        log("Waiting for hovering state after climb...")
-        if not drone(FlyingStateChanged(state="hovering", _timeout=timeout_sec)).wait().success():
-            log("Warning: Did not return to hovering state")
-        
-        log(f"✓ Reached {safe_altitude_m}m altitude")
-        return True
+        ).wait(_timeout=5).success()
+        if not ack_ok:
+            log("Warning: climb command ack failed or was refused; continuing to monitor altitude")
+
+        # Poll altitude until reaching the target or timeout
+        target_alt = safe_altitude_m
+        deadline = time.monotonic() + max(timeout_sec * 3, 120.0)
+        last_report = time.monotonic()
+        while time.monotonic() < deadline:
+            state = drone.get_state(AltitudeChanged)
+            if state is not None:
+                current_alt = state.get("altitude", current_alt)
+            if current_alt >= target_alt - 0.5:
+                log(f"✓ Reached {current_alt:.1f}m (>= {target_alt:.1f}m)")
+                # Optional: wait a short time for hover stabilization
+                drone(FlyingStateChanged(state="hovering", _timeout=10)).wait()
+                return True
+            now = time.monotonic()
+            if now - last_report > 2.0:
+                log(f"  Altitude: {current_alt:.1f}m / {target_alt:.1f}m")
+                last_report = now
+            time.sleep(0.2)
+
+        log(f"Failed to climb to {safe_altitude_m}m (last altitude {current_alt:.1f}m)")
+        return False
 
     def step_goto_poi() -> bool:
         log(f"Navigating to POI '{poi_name}'...")
