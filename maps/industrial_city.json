@@ -25,6 +25,16 @@
         "altitude_meters": 19.0
       },
       "description": "Advertising board at 19m height"
+    },
+    {
+      "name": "Ventilation Pipes",
+      "type": "structure",
+      "coordinates": {
+        "latitude": 48.87881527709961,
+        "longitude": 2.3665938951969148,
+        "altitude_meters": 20.0
+      },
+      "description": "Set of ventilation pipes on a building"
     }
   ],
   "boundaries": [

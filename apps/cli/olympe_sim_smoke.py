@@ -282,15 +282,15 @@ def main() -> int:
 
     def step_move_to_near_poi() -> bool:
         """
-        Move to the Advertising Board coordinates from the industrial city map.
-        Advertising Board coordinates: 48.87882157897949, 2.368181582689285 at 19m altitude.
+        Move to the Ventilation Pipes coordinates from the industrial city map.
+        Ventilation Pipes coordinates: 48.87881527709961, 2.3665938951969148 at 20m altitude.
         """
-        # Advertising Board coordinates from industrial_city.json
-        target_lat = 48.87882157897949
-        target_lon = 2.368181582689285
-        target_alt = 40.0  # meters (advertising board height)
+        # Ventilation Pipes coordinates from industrial_city.json
+        target_lat = 48.87881527709961
+        target_lon = 2.3665938951969148
+        target_alt = 40.0  # meters (flying altitude above ventilation pipes)
         
-        log(f"Moving to Advertising Board: lat={target_lat:.6f}, lon={target_lon:.6f}, alt={target_alt}m")
+        log(f"Moving to Ventilation Pipes: lat={target_lat:.6f}, lon={target_lon:.6f}, alt={target_alt}m")
         
         try:
             # Move to the target position
@@ -313,10 +313,10 @@ def main() -> int:
             ).wait(_timeout=move_timeout_sec)
             
             if result.success():
-                log("Successfully moved to Advertising Board position")
+                log("Successfully moved to Ventilation Pipes position")
                 # Wait for hovering state to confirm arrival
                 # Use longer timeout for hovering check (default 30s)
-                hover_timeout_sec = float(os.environ.get("HOVER_TIMEOUT_SEC", "30"))
+                hover_timeout_sec = float(os.environ.get("HOVER_TIMEOUT_SEC", "120"))
                 log(f"Waiting for hovering state (timeout: {hover_timeout_sec}s)...")
                 hover_ok = drone(FlyingStateChanged(state="hovering")).wait(_timeout=hover_timeout_sec)
                 if hover_ok:
@@ -325,11 +325,11 @@ def main() -> int:
                     log(f"Warning: Hovering state not confirmed within {hover_timeout_sec}s, but move completed")
                 return bool(hover_ok)
             else:
-                log(f"Move to Advertising Board failed (timeout: {move_timeout_sec}s)")
+                log(f"Move to Ventilation Pipes failed (timeout: {move_timeout_sec}s)")
                 log(f"Explanation: {result.explain()}")
                 return False
         except Exception as e:
-            log(f"Move to near POI failed with exception: {e}")
+            log(f"Move to Ventilation Pipes failed with exception: {e}")
             return False
 
     def step_move_away_from_home() -> bool:
