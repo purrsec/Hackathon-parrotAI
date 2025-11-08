@@ -141,43 +141,28 @@ def main() -> int:
         log("Drone is hovering!")
         return True
 
-    def step_climb_to_safe_altitude() -> bool:
-        log(f"Climbing to safe altitude ({safe_altitude_m}m) to clear obstacles...")
-        # dZ is negative for upward movement
-        climb_distance = -safe_altitude_m
+    def step_goto_poi_direct() -> bool:
+        log(f"Flying directly to POI '{poi_name}' at safe altitude...")
+        log(f"  Target: lat={target_lat:.8f}, lon={target_lon:.8f}")
+        log(f"  Safe altitude: {safe_altitude_m}m (climbing during flight)")
         
-        result = drone(
-            moveBy(0.0, 0.0, climb_distance, 0.0)
-        ).wait(_timeout=timeout_sec * 2).success()
-        
-        if not result:
-            log(f"Failed to climb to {safe_altitude_m}m")
-            return False
-        
-        log(f"✓ Reached safe altitude of {safe_altitude_m}m")
-        return True
-
-    def step_goto_poi() -> bool:
-        log(f"Navigating to POI '{poi_name}'...")
-        log(f"  Target: lat={target_lat:.8f}, lon={target_lon:.8f}, alt={target_alt}m")
-        
-        # Use extended_move_to for GPS navigation
-        # Orientation mode: NONE (don't change heading), TO_TARGET (face target), or HEADING_START/HEADING_DURING
+        # Use extended_move_to for GPS navigation with safe altitude
+        # This will climb AND move horizontally in an optimized trajectory
         result = drone(
             extended_move_to(
                 latitude=target_lat,
                 longitude=target_lon,
-                altitude=target_alt,
+                altitude=safe_altitude_m,  # Climb to safe altitude during flight
                 orientation_mode=olympe.enums.move.OrientationMode.TO_TARGET,
                 heading=0.0  # Will be ignored with TO_TARGET mode
             )
-        ).wait(_timeout=timeout_sec * 3).success()
+        ).wait(_timeout=timeout_sec * 4).success()
         
         if not result:
-            log(f"Failed to reach POI '{poi_name}'")
+            log(f"Failed to reach POI '{poi_name}' at safe altitude")
             return False
         
-        log(f"✓ Reached POI '{poi_name}'!")
+        log(f"✓ Reached POI '{poi_name}' at {safe_altitude_m}m altitude!")
         return True
 
     def step_hover_and_inspect() -> bool:
@@ -205,8 +190,7 @@ def main() -> int:
     steps = [
         ("connect", step_connect),
         ("takeoff", step_takeoff),
-        ("climb_to_safe_altitude", step_climb_to_safe_altitude),
-        ("goto_poi", step_goto_poi),
+        ("goto_poi_direct", step_goto_poi_direct),
         ("hover_and_inspect", step_hover_and_inspect),
         ("land", step_land),
     ]
