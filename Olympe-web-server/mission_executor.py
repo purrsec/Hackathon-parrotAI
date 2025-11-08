@@ -26,6 +26,14 @@ def _import_olympe():
     """
     try:
         import olympe  # type: ignore
+        import olympe.log  # type: ignore
+        # Reduce Olympe logging verbosity - only show warnings and errors
+        olympe.log.update_config({
+            "loggers": {
+                "olympe": {"level": "WARNING"},
+                "ulog": {"level": "WARNING"}
+            }
+        })
         from olympe import Drone  # type: ignore
         from olympe.messages.ardrone3.Piloting import (  # type: ignore
             TakeOff,
