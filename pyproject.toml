@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11,<3.14"
 dependencies = [
     "parrot-olympe>=7.7.5",
+    "websockets>=15.0.1",
 ]
 
 [tool.uv.workspace]

@@ -312,10 +312,14 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "parrot-olympe" },
+    { name = "websockets" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "parrot-olympe", specifier = ">=7.7.5" }]
+requires-dist = [
+    { name = "parrot-olympe", specifier = ">=7.7.5" },
+    { name = "websockets", specifier = ">=15.0.1" },
+]
 
 [[package]]
 name = "httpcore"

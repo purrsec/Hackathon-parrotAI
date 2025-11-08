@@ -28,6 +28,7 @@ import time
 import logging
 from datetime import datetime
 from natural_language_processor import get_nlp_processor
+from mission_executor import get_drone_identity
 
 # ============================================================================
 # Configuration du logging
@@ -142,6 +143,19 @@ class UserMessage(BaseModel):
         default_factory=dict,
         description="Métadonnées additionnelles (channel, timestamp, etc.)"
     )
+    # Confirmation fields
+    is_confirmation: bool = Field(
+        default=False,
+        description="True si c'est une réponse de confirmation (yes/no)"
+    )
+    confirmation_for: Optional[str] = Field(
+        default=None,
+        description="ID de la mission à confirmer/annuler"
+    )
+    confirmation_value: Optional[bool] = Field(
+        default=None,
+        description="True pour yes/oui, False pour no/non"
+    )
     
     @field_validator('id')
     @classmethod
@@ -207,6 +221,7 @@ service_start_time = time.time()
 # Historique des messages (debug/audit)
 message_history: list[Dict[str, Any]] = []
 MAX_HISTORY_SIZE = 100
+pending_missions: dict[str, Dict[str, Any]] = {}
 
 # ============================================================================
 # Helpers - Construction de réponses
@@ -421,7 +436,10 @@ async def websocket_endpoint(websocket: WebSocket):
                     message=str(payload["message"]),
                     source=payload.get("source", "websocket"),
                     user_id=payload.get("user_id"),
-                    metadata=dict(payload.get("metadata", {}))
+                    metadata=dict(payload.get("metadata", {})),
+                    is_confirmation=payload.get("is_confirmation", False),
+                    confirmation_for=payload.get("confirmation_for"),
+                    confirmation_value=payload.get("confirmation_value")
                 )
             except Exception as e:
                 logger.error(f"❌ Validation failed: {e}")
@@ -432,7 +450,66 @@ async def websocket_endpoint(websocket: WebSocket):
                 })
                 continue
             
-            # Router le message
+            # Vérifier si c'est une réponse de confirmation (via le champ dédié)
+            if user_message.is_confirmation:
+                # Vérifier que l'ID de mission est fourni
+                if not user_message.confirmation_for:
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "Missing confirmation_for field",
+                        "timestamp": datetime.now().isoformat()
+                    })
+                    continue
+                
+                # Vérifier que la mission existe
+                mission_id = str(user_message.confirmation_for)
+                if mission_id not in pending_missions:
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": f"No pending mission found with ID: {mission_id}",
+                        "timestamp": datetime.now().isoformat()
+                    })
+                    continue
+                
+                mission_data = pending_missions[mission_id]
+                
+                if user_message.confirmation_value:
+                    # L'utilisateur confirme - exécuter la mission
+                    logger.info(f"✅ User confirmed mission execution: {mission_id}")
+                    
+                    await websocket.send_json({
+                        "type": "mission_confirmed",
+                        "id": mission_id,
+                        "message": "Mission confirmed! Executing...",
+                        "status": "executing",
+                        "timestamp": datetime.now().isoformat()
+                    })
+                    
+                    # TODO: Appeler le mission executor ici
+                    # from mission_executor import execute_mission
+                    # await execute_mission(mission_data["mission_dsl"])
+                    
+                    # Retirer de la liste des missions en attente
+                    del pending_missions[mission_id]
+                    
+                else:
+                    # L'utilisateur refuse - annuler la mission
+                    logger.info(f"❌ User cancelled mission: {mission_id}")
+                    
+                    await websocket.send_json({
+                        "type": "mission_cancelled",
+                        "id": mission_id,
+                        "message": "Mission cancelled by user",
+                        "status": "cancelled",
+                        "timestamp": datetime.now().isoformat()
+                    })
+                    
+                    # Retirer de la liste des missions en attente
+                    del pending_missions[mission_id]
+                
+                continue  # Ne pas traiter comme un message normal
+            
+            # Router le message normal
             result = await route_message(user_message)
             
             # Envoyer la réponse avec mission DSL si disponible
@@ -449,6 +526,33 @@ async def websocket_endpoint(websocket: WebSocket):
                 response_json["mission_dsl"] = result.mission_dsl
             
             await websocket.send_json(response_json)
+            
+            # Si une mission a été générée, envoyer un prompt de confirmation utilisateur
+            if result.mission_dsl and result.status == "processed":
+                try:
+                    # Stocker la mission en attente d'exécution
+                    pending_missions[str(result.id)] = {
+                        "mission_dsl": result.mission_dsl,
+                        "created_at": datetime.now().isoformat(),
+                        "source_message": payload
+                    }
+                    # Récupérer l'identité du drone (best-effort)
+                    try:
+                        identity = get_drone_identity()
+                    except Exception:
+                        identity = {"id": "unknown", "ip": "unknown"}
+                    
+                    await websocket.send_json({
+                        "type": "mission_confirmation",
+                        "id": result.id,
+                        "drone_id": identity.get("id", "unknown"),
+                        "drone_ip": identity.get("ip", "unknown"),
+                        "message": "Mission loaded on drone. Ready to execute? (Yes/No)",
+                        "ready": "No",
+                        "timestamp": datetime.now().isoformat()
+                    })
+                except Exception as e:
+                    logger.error(f"❌ Failed to send mission confirmation: {e}", exc_info=True)
     
     except WebSocketDisconnect:
         logger.info(f"🔌 WebSocket déconnecté: {client_id}")

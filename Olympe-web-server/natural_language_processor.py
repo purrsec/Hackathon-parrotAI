@@ -99,10 +99,13 @@ Rules:
 			user_message: Natural language message from the user
 			
 		Returns:
-			Dictionary containing the mission DSL
+			Dictionary containing the mission DSL with understanding summary
 		"""
 		try:
 			logger.info(f"Processing user message: {user_message}")
+			
+			# Generate a human-readable understanding of what the user wants
+			understanding = await self._generate_mission_understanding(user_message)
 			
 			# Call Mistral with the system prompt and user message
 			# Use a fast/accurate model optimized for low-latency JSON generation
@@ -197,6 +200,11 @@ Rules:
 				normalized = self._extract_json_from_text(response_text)
 				mission_dsl = json.loads(normalized)
 				logger.info(f"Successfully parsed mission DSL")
+				
+				# Add the understanding to the mission DSL
+				mission_dsl["understanding"] = understanding
+				logger.info(f"Added understanding to mission DSL: {understanding}")
+				
 				return mission_dsl
 			except json.JSONDecodeError as e:
 				logger.error(f"Failed to parse Mistral response as JSON: {response_text}")
@@ -213,6 +221,49 @@ Rules:
 				"error": f"Error processing request: {str(e)}"
 			}
 
+	async def _generate_mission_understanding(self, user_message: str) -> str:
+		"""
+		Generate a human-readable understanding of what the user wants.
+		
+		Args:
+			user_message: Natural language message from the user
+			
+		Returns:
+			Short summary like "Yes, I can fly over all towers and come back"
+		"""
+		try:
+			# Create a prompt to generate a short understanding
+			understanding_prompt = f"""You are a helpful drone assistant. 
+Given this user request, respond with a SHORT confirmation (1 sentence max).
+Format: "Yes, I can [action] [details]"
+
+User request: {user_message}
+
+Respond with ONLY the confirmation sentence, nothing else."""
+			
+			logger.info(f"🤖 Generating understanding for: {user_message}")
+			
+			response = self.mistral_socket.create_completion(
+				model=os.getenv("FAST_MISSION_DSL_MODEL", "mistral-medium-latest"),
+				messages=[
+					{"role": "user", "content": understanding_prompt}
+				],
+				max_tokens=100,
+				temperature=0.5,
+				safe_prompt=False
+			)
+			
+			understanding = response.choices[0].message.content.strip()
+			logger.info(f"✅ Generated understanding: {understanding}")
+			return understanding
+		
+		except Exception as e:
+			logger.error(f"❌ Failed to generate understanding: {e}", exc_info=True)
+			# Fallback to a generic response
+			fallback = f"Yes, I can execute: {user_message[:60]}..."
+			logger.info(f"Using fallback understanding: {fallback}")
+			return fallback
+	
 	def _extract_json_from_text(self, text: str) -> str:
 		"""
 		Extract a JSON object from a model response that may include markdown fences.
