@@ -147,10 +147,10 @@ def main() -> int:
         # Use extended_move_by to specify max_vertical_speed directly
         result = drone(
             extended_move_by(
-                dX=0.0,
-                dY=0.0,
-                dZ=-safe_altitude_m,
-                dPsi=0.0,
+                d_x=0.0,
+                d_y=0.0,
+                d_z=-safe_altitude_m,
+                d_psi=0.0,
                 max_horizontal_speed=0.0,
                 max_vertical_speed=4.0,
                 max_yaw_rotation_speed=0.0
