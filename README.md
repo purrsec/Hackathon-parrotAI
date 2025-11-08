@@ -49,34 +49,43 @@ Discord (user)  ->  Discord Bot  ->  NLP Agent (LLM)  ->  Mission Planner
 - Policy/Validation: Safety checks (geofence, max altitude/speed, RTH availability, battery margins).
 
 
-Repository layout (proposed)
-----------------------------
+Repository layout
+-----------------
 
 ```
 .
+├─ NextJS/                    # Next.js web app (UI)
+├─ Olympe-web-server/         # HTTP API: receive POST, relay to Olympe/drone/sim
+├─ discord-bot/               # Discord bot interface
 ├─ apps/
-│  ├─ discord_bot/           # Entry point for Discord bot
-│  └─ cli/                   # Optional: local CLI runner for offline tests
-├─ core/
-│  ├─ nlp_agent/             # LLM interface + prompt templates + schemas
-│  ├─ mission_dsl/           # JSON schema + validators + converters
-│  ├─ planner/               # Path planning, waypoints, orbit, RTH logic
-│  ├─ policies/              # Safety constraints & checks
-│  └─ execution/             # Orchestrates Olympe calls from validated plans
-├─ adapters/
-│  ├─ olympe_driver/         # Thin wrapper over Parrot Olympe SDK
-│  └─ geocoding/             # POI resolution (e.g., Nominatim), caching
-├─ infra/
-│  ├─ config/                # .env templates, settings loader
-│  ├─ logging/               # Structured logging setup
-│  ├─ docker/                # Dockerfile/devcontainer/compose
-│  └─ scripts/               # Helper scripts (start_sphinx, check_env, etc.)
-├─ tests/
-│  ├─ unit/
-│  └─ integration/
-├─ requirements.txt or pyproject.toml
-├─ .env.example
+│  └─ cli/                    # Local CLI smoke tests (Olympe)
+├─ docs/
+├─ pyproject.toml / requirements.txt
+├─ uv.lock
 └─ README.md
+```
+
+Planned modules (to be added)
+-----------------------------
+
+```
+core/
+  nlp_agent/      # LLM interface + prompts + schemas
+  mission_dsl/    # JSON schema + validators + converters
+  planner/        # Path planning, waypoints, orbit, RTH logic
+  policies/       # Safety constraints & checks
+  execution/      # Orchestrates Olympe calls from validated plans
+adapters/
+  olympe_driver/  # Thin wrapper over Parrot Olympe SDK
+  geocoding/      # POI resolution (e.g., Nominatim), caching
+infra/
+  config/         # .env templates, settings loader
+  logging/        # Structured logging setup
+  docker/         # Dockerfile/devcontainer/compose
+  scripts/        # start_sphinx, check_env, etc.
+tests/
+  unit/
+  integration/
 ```
 
 Conventions for contributors
