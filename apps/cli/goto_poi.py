@@ -77,10 +77,18 @@ def main() -> int:
     try:
         import olympe
         from olympe import Drone
-        from olympe.messages.ardrone3.Piloting import TakeOff, Landing, NavigateHome
-        from olympe.messages.ardrone3.PilotingState import FlyingStateChanged
+        from olympe.messages.ardrone3.Piloting import (
+            TakeOff,
+            Landing,
+            NavigateHome,
+            StartPilotedPOIV2,
+            StopPilotedPOI,
+            PCMD,
+        )
+        from olympe.messages.ardrone3.PilotingState import FlyingStateChanged, PilotedPOI
         from olympe.messages.ardrone3.SpeedSettings import MaxVerticalSpeed, MaxRotationSpeed
         from olympe.messages.move import extended_move_to, extended_move_by
+        import time
     except Exception as exc:
         log(f"Olympe import failed: {exc}")
         return EXIT_IMPORT_ERROR
@@ -90,6 +98,8 @@ def main() -> int:
     timeout_sec = float(os.environ.get("TIMEOUT_SEC", "60"))
     safe_altitude_m = float(os.environ.get("SAFE_ALT_M", "35.0"))
     poi_name = os.environ.get("POI_NAME", "Ventilation Pipes")
+    poi_offset_m = float(os.environ.get("POI_OFFSET_M", "25.0"))  # Offset distance in meters (north of POI)
+    rotation_duration_s = float(os.environ.get("ROTATION_DURATION_S", "30.0"))  # Rotation duration around POI
     
     log("=" * 80)
     log(f"Configuration:")
@@ -97,6 +107,8 @@ def main() -> int:
     log(f"  Timeout: {timeout_sec}s")
     log(f"  Safe altitude: {safe_altitude_m}m")
     log(f"  Target POI: {poi_name}")
+    log(f"  POI offset: {poi_offset_m}m (viewing distance)")
+    log(f"  Rotation duration: {rotation_duration_s}s")
     log("=" * 80)
     
     # Load POI coordinates
@@ -203,25 +215,42 @@ def main() -> int:
         return False
 
     def step_goto_poi() -> bool:
-        log(f"Navigating to POI '{poi_name}'...")
-        log(f"  Target: lat={target_lat:.8f}, lon={target_lon:.8f}, alt={target_alt}m")
+        """Move to offset position near the POI for optimal viewing angle."""
+        # Calculate offset position (north of the POI)
+        # At latitude ~48.88, 1 degree ≈ 111km, so convert meters to degrees
+        offset_degrees = poi_offset_m / 111000.0
+        offset_lat = target_lat + offset_degrees  # Offset north
+        offset_lon = target_lon  # No longitude offset
+        
+        log(f"Navigating to offset position near POI '{poi_name}'...")
+        log(f"  POI location: lat={target_lat:.8f}, lon={target_lon:.8f}, alt={target_alt}m")
+        log(f"  Offset position: lat={offset_lat:.8f}, lon={offset_lon:.8f}, alt={safe_altitude_m}m")
+        log(f"  Offset distance: {poi_offset_m}m north of POI")
         
         result = drone(
             extended_move_to(
-                latitude=target_lat,
-                longitude=target_lon,
-                altitude=target_alt,
-                # Olympe accepts enum values as lowercase strings
+                latitude=offset_lat,
+                longitude=offset_lon,
+                altitude=safe_altitude_m,
                 orientation_mode="to_target",
-                heading=0.0
+                heading=0.0,
+                max_horizontal_speed=20.0,
+                max_vertical_speed=3.0,
+                max_yaw_rotation_speed=1.0
             )
-        ).wait(_timeout=max(timeout_sec * 3, 180)).success()
+        ).wait(_timeout=max(timeout_sec * 3, 180))
         
-        if not result:
-            log(f"Failed to reach POI '{poi_name}'")
+        if not result.success():
+            log(f"Failed to reach offset position near POI '{poi_name}'")
             return False
         
-        log(f"✓ Reached POI '{poi_name}'!")
+        log(f"✓ Reached offset position near POI '{poi_name}'!")
+        
+        # Wait for hovering state
+        hover_ok = drone(FlyingStateChanged(state="hovering", _timeout=30)).wait().success()
+        if not hover_ok:
+            log("Warning: Not in hovering state after move")
+        
         return True
     
     def step_return_home() -> bool:
@@ -237,12 +266,70 @@ def main() -> int:
         log("✓ Returned to takeoff position")
         return True
 
-    def step_hover_and_inspect() -> bool:
-        log(f"Hovering at POI for inspection (5 seconds)...")
-        import time
-        time.sleep(5)
-        log("Inspection complete!")
-        return True
+    def step_poi_inspect() -> bool:
+        """Start POI mode and rotate around the POI for inspection."""
+        log(f"Starting POI mode at '{poi_name}': lat={target_lat:.8f}, lon={target_lon:.8f}, alt={target_alt}m")
+        
+        try:
+            # Start POI mode at the actual POI location (not the offset position)
+            log("Sending StartPilotedPOIV2 command...")
+            result = drone(StartPilotedPOIV2(
+                latitude=target_lat,
+                longitude=target_lon,
+                altitude=target_alt,
+                mode="locked_gimbal"  # Keep gimbal locked on POI
+            )).wait(_timeout=5)
+            
+            if not result.success():
+                log(f"StartPilotedPOIV2 command failed: {result.explain()}")
+                return False
+            
+            log("✓ POI mode started successfully")
+            time.sleep(1)  # Give it time to activate
+            
+            # Check POI state
+            try:
+                poi_state = drone.get_state(PilotedPOI)
+                if poi_state:
+                    log(f"POI state: {poi_state}")
+            except Exception:
+                log("WARNING: POI state unavailable")
+            
+            # Rotate around the POI using PCMD with constant roll
+            # PCMD parameters: (flag, roll, pitch, yaw, gaz, timestampAndSeqNum)
+            # In POI mode, drone faces POI, so we use constant roll to strafe around it
+            log(f"Rotating around '{poi_name}' POI for {rotation_duration_s}s...")
+            roll_rate = 100  # Roll rate (0-100)
+            command_rate_hz = 20  # Commands per second
+            rotation_steps = int(rotation_duration_s * command_rate_hz)
+            sleep_time = 1.0 / command_rate_hz
+            
+            for i in range(rotation_steps):
+                # Send constant roll command
+                drone(PCMD(1, roll_rate, 0, 0, 0, timestampAndSeqNum=0))
+                time.sleep(sleep_time)
+            
+            # Stop movement
+            drone(PCMD(0, 0, 0, 0, 0, timestampAndSeqNum=0))
+            log("✓ Rotation completed")
+            
+            # Stop POI mode
+            log("Stopping POI mode...")
+            try:
+                drone(StopPilotedPOI()).wait(_timeout=5)
+                log("✓ POI mode stopped")
+            except Exception as e:
+                log(f"POI stop warning: {e}")
+            
+            return True
+        except Exception as e:
+            log(f"POI inspection failed with exception: {e}")
+            # Try to stop POI mode even if there was an error
+            try:
+                drone(StopPilotedPOI()).wait(_timeout=5)
+            except Exception:
+                pass
+            return False
 
     def step_land() -> bool:
         log("Sending Landing command...")
@@ -264,7 +351,7 @@ def main() -> int:
         ("takeoff", step_takeoff),
         ("climb_35m", step_climb_35m),
         ("goto_poi", step_goto_poi),
-        ("hover_and_inspect", step_hover_and_inspect),
+        ("poi_inspect", step_poi_inspect),
         ("return_home", step_return_home),
         ("land", step_land),
     ]
