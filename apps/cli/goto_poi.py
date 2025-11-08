@@ -77,8 +77,8 @@ def main() -> int:
     try:
         import olympe
         from olympe import Drone
-        from olympe.messages.ardrone3.Piloting import TakeOff, Landing
-        from olympe.messages.ardrone3.PilotingState import FlyingStateChanged
+        from olympe.messages.ardrone3.Piloting import TakeOff, Landing, NavigateHome
+        from olympe.messages.ardrone3.PilotingState import FlyingStateChanged, moveByEnd
         from olympe.messages.move import extended_move_to, extended_move_by
     except Exception as exc:
         log(f"Olympe import failed: {exc}")
@@ -145,6 +145,7 @@ def main() -> int:
         log(f"Climbing to {safe_altitude_m}m with max vertical speed 4 m/s...")
         # dZ is negative for upward movement
         # Use extended_move_by to specify max_vertical_speed directly
+        # Wait for moveByEnd event to confirm completion
         result = drone(
             extended_move_by(
                 d_x=0.0,
@@ -154,8 +155,8 @@ def main() -> int:
                 max_horizontal_speed=0.0,
                 max_vertical_speed=4.0,
                 max_yaw_rotation_speed=0.0
-            )
-        ).wait(_timeout=timeout_sec * 2).success()
+            ) >> moveByEnd(error="OK")
+        ).wait(_timeout=timeout_sec * 3).success()
         
         if not result:
             log(f"Failed to climb to {safe_altitude_m}m")
