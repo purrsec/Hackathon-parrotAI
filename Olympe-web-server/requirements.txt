@@ -2,4 +2,8 @@ fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
 pydantic>=2.10.0
 python-multipart>=0.0.12
+httpx>=0.27.0
+# Optional LLM providers (uncomment if used)
+# openai>=1.51.0
+# anthropic>=0.37.1
 # olympe==1.0.0  # Commenté pour développement local (non disponible sans simulateur)

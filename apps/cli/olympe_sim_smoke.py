@@ -173,11 +173,23 @@ def main() -> int:
         
         log("Waiting for hovering state...")
         hover_result = drone(FlyingStateChanged(state="hovering")).wait(_timeout=timeout_sec).success()
-        if hover_result:
-            log("Drone is now hovering!")
-        else:
+        if not hover_result:
             log("Failed to reach hovering state")
-        return bool(hover_result)
+            return False
+        log("Drone is now hovering!")
+        
+        # Climb to 20m to clear buildings
+        log("Climbing to 20m altitude to clear buildings...")
+        drone(moveBy(0.0, 0.0, -20.0, 0.0))
+        # Wait for moveByEnd event or just wait for hovering again
+        time.sleep(2.0)  # Give it time to start climbing
+        hover_after_climb = drone(FlyingStateChanged(state="hovering")).wait(_timeout=timeout_sec * 3).success()
+        if not hover_after_climb:
+            log("Warning: didn't confirm hovering after climb, but continuing...")
+        else:
+            log("Reached 20m altitude and hovering")
+        
+        return True
 
     def step_move_square() -> bool:
         # 5m forward, yaw 90°, repeat 4 times -> 5m x 5m square
