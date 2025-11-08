@@ -212,28 +212,24 @@ def _segment_poi_inspection(
 
 
 def _segment_return_to_home(drone, timeout_sec: float) -> None:
+    """
+    Return to home using NavigateHome command.
+    Note: NavigateHome API has changed - no longer uses start parameter.
+    """
     logger.info("Segment: return_to_home")
-    try:
-        from olympe.messages import rth  # type: ignore
-        try:
-            if hasattr(rth, "set_ending_behavior"):
-                drone(rth.set_ending_behavior(ending_behavior="landing")).wait(_timeout=timeout_sec)
-                logger.info("RTH ending behavior set to 'landing'")
-        except Exception:
-            logger.info("Could not set RTH ending behavior to 'landing'")
-        if not drone(rth.return_to_home(start=1)).wait(_timeout=timeout_sec).success():
-            raise MissionExecutionError("Failed to start RTH via rth.return_to_home")
-        logger.info("RTH started")
-        # Wait for RTH completion if state available; otherwise just proceed to landing later
-        drone(rth.state(state="available", reason="finished")).wait(_timeout=float(os.environ.get("RTH_TIMEOUT_SEC", "300")))
-    except Exception:
-        # Fallback
-        logger.info("rth API not available; fallback to NavigateHome")
-        # If NavigateHome import failed at import time, this raises and is caught by top-level handler
-        from olympe.messages.ardrone3.Piloting import NavigateHome  # type: ignore
-        if not drone(NavigateHome(start=1)).wait(_timeout=timeout_sec).success():
-            raise MissionExecutionError("Failed to start NavigateHome")
-        time.sleep(5.0)
+    rth_timeout_sec = float(os.environ.get("RTH_TIMEOUT_SEC", "300"))
+    
+    # Use NavigateHome directly - more reliable than rth API
+    from olympe.messages.ardrone3.Piloting import NavigateHome  # type: ignore
+    
+    logger.info("Triggering NavigateHome...")
+    # API changed: NavigateHome() is now called without parameters
+    if not drone(NavigateHome()).wait(_timeout=timeout_sec).success():
+        raise MissionExecutionError("Failed to start NavigateHome")
+    
+    logger.info("NavigateHome started, waiting for completion...")
+    # Give it time to complete RTH
+    time.sleep(5.0)
 
 
 def _segment_land(drone, Landing, FlyingStateChanged, timeout_sec: float) -> None:
