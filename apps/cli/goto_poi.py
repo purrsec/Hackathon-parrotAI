@@ -81,6 +81,7 @@ def main() -> int:
         from olympe.messages.ardrone3.PilotingState import FlyingStateChanged
         from olympe.messages.ardrone3.SpeedSettings import MaxVerticalSpeed, MaxRotationSpeed
         from olympe.messages.move import extended_move_to, extended_move_by
+        from olympe.enums.move import OrientationMode
     except Exception as exc:
         log(f"Olympe import failed: {exc}")
         return EXIT_IMPORT_ERROR
@@ -211,10 +212,10 @@ def main() -> int:
                 latitude=target_lat,
                 longitude=target_lon,
                 altitude=target_alt,
-                orientation_mode=olympe.enums.moveTo.OrientationMode.TO_TARGET,
+                orientation_mode=OrientationMode.TO_TARGET,
                 heading=0.0
             )
-        ).wait(_timeout=timeout_sec * 3).success()
+        ).wait(_timeout=max(timeout_sec * 3, 180)).success()
         
         if not result:
             log(f"Failed to reach POI '{poi_name}'")
