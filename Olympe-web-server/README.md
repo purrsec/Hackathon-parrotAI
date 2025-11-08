@@ -17,7 +17,17 @@ Olympe Driver → Drone/Simulator
 **Rôle de FastAPI:** Réception et validation uniquement.  
 **Traitement:** Fait par un autre module Python local.
 
-## Fichiers
+## Structure du projet
+
+```
+Olympe-web-server/
+├── fastapi_entrypoint.py    # Point d'entrée FastAPI
+├── main.py                   # Alias de lancement
+├── tests/                    # Tests (compatible pytest/UV)
+│   ├── __init__.py
+│   └── test_message_gateway.py
+└── README.md
+```
 
 ### ✅ `fastapi_entrypoint.py` (IMPLÉMENTÉ)
 Point d'entrée unique - Reçoit les messages en **langage naturel** via:
@@ -36,8 +46,8 @@ Point d'entrée unique - Reçoit les messages en **langage naturel** via:
 - ❌ Pas de traduction en commandes Olympe
 - ❌ Pas d'exécution sur le drone
 
-### ✅ `test_message_gateway.py` (IMPLÉMENTÉ)
-Script de test pour envoyer des messages au gateway.
+### ✅ `tests/test_message_gateway.py` (IMPLÉMENTÉ)
+Script de test pour envoyer des messages au gateway (REST + WebSocket).
 
 ### 🔜 Module de traitement (séparé)
 
