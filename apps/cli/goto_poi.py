@@ -141,28 +141,52 @@ def main() -> int:
         log("Drone is hovering!")
         return True
 
-    def step_goto_poi_direct() -> bool:
-        log(f"Flying directly to POI '{poi_name}' at safe altitude...")
-        log(f"  Target: lat={target_lat:.8f}, lon={target_lon:.8f}")
-        log(f"  Safe altitude: {safe_altitude_m}m (climbing during flight)")
+    def step_climb_35m() -> bool:
+        log(f"Climbing to {safe_altitude_m}m...")
+        # dZ is negative for upward movement
+        result = drone(
+            moveBy(0.0, 0.0, -safe_altitude_m, 0.0)
+        ).wait(_timeout=timeout_sec * 2).success()
         
-        # Use extended_move_to for GPS navigation with safe altitude
-        # This will climb AND move horizontally in an optimized trajectory
+        if not result:
+            log(f"Failed to climb to {safe_altitude_m}m")
+            return False
+        
+        log(f"✓ Reached {safe_altitude_m}m altitude")
+        return True
+
+    def step_goto_poi() -> bool:
+        log(f"Navigating to POI '{poi_name}'...")
+        log(f"  Target: lat={target_lat:.8f}, lon={target_lon:.8f}, alt={target_alt}m")
+        
         result = drone(
             extended_move_to(
                 latitude=target_lat,
                 longitude=target_lon,
-                altitude=safe_altitude_m,  # Climb to safe altitude during flight
+                altitude=target_alt,
                 orientation_mode=olympe.enums.moveTo.OrientationMode.TO_TARGET,
-                heading=0.0  # Will be ignored with TO_TARGET mode
+                heading=0.0
             )
-        ).wait(_timeout=timeout_sec * 4).success()
+        ).wait(_timeout=timeout_sec * 3).success()
         
         if not result:
-            log(f"Failed to reach POI '{poi_name}' at safe altitude")
+            log(f"Failed to reach POI '{poi_name}'")
             return False
         
-        log(f"✓ Reached POI '{poi_name}' at {safe_altitude_m}m altitude!")
+        log(f"✓ Reached POI '{poi_name}'!")
+        return True
+    
+    def step_return_home() -> bool:
+        log("Returning to takeoff position...")
+        from olympe.messages.ardrone3.Piloting import NavigateHome
+        
+        result = drone(NavigateHome(start=1)).wait(_timeout=timeout_sec * 3).success()
+        
+        if not result:
+            log("Failed to return home")
+            return False
+        
+        log("✓ Returned to takeoff position")
         return True
 
     def step_hover_and_inspect() -> bool:
@@ -190,8 +214,10 @@ def main() -> int:
     steps = [
         ("connect", step_connect),
         ("takeoff", step_takeoff),
-        ("goto_poi_direct", step_goto_poi_direct),
+        ("climb_35m", step_climb_35m),
+        ("goto_poi", step_goto_poi),
         ("hover_and_inspect", step_hover_and_inspect),
+        ("return_home", step_return_home),
         ("land", step_land),
     ]
 
