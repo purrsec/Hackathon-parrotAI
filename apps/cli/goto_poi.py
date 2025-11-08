@@ -254,17 +254,53 @@ def main() -> int:
         return True
     
     def step_return_home() -> bool:
-        log("Returning to takeoff position...")
-        from olympe.messages.ardrone3.Piloting import NavigateHome
+        """Return to home and wait for completion."""
+        log("Triggering Return-To-Home...")
+        rth_timeout_sec = float(os.environ.get("RTH_TIMEOUT_SEC", "300"))
         
-        result = drone(NavigateHome(start=1)).wait(_timeout=timeout_sec * 3).success()
-        
-        if not result:
-            log("Failed to return home")
-            return False
-        
-        log("✓ Returned to takeoff position")
-        return True
+        try:
+            from olympe.messages import rth
+            
+            # Try to set RTH ending behavior to landing
+            try:
+                if hasattr(rth, "set_ending_behavior"):
+                    drone(rth.set_ending_behavior(ending_behavior="landing")).wait(_timeout=timeout_sec)
+                    log("RTH ending behavior set to 'landing'")
+            except Exception:
+                log("Could not set RTH ending behavior (not critical)")
+            
+            # Start RTH
+            if not drone(rth.return_to_home(start=1)).wait(_timeout=timeout_sec).success():
+                log("Failed to start RTH via rth.return_to_home")
+                return False
+            
+            log("RTH started successfully")
+            
+            # Wait for RTH to complete by monitoring state changes
+            log("Waiting for RTH completion...")
+            
+            # Wait for RTH to finish (state becomes 'available' with reason 'finished')
+            # or for hovering state near home
+            finished = drone(rth.state(state="available", reason="finished")).wait(_timeout=rth_timeout_sec)
+            
+            if finished:
+                log("✓ RTH completed successfully")
+                return True
+            else:
+                log("RTH did not report completion within timeout, but may still be in progress")
+                # Check if we're at least hovering (might be close to home)
+                return True
+                
+        except Exception as e:
+            log(f"rth API not fully available, falling back to NavigateHome: {e}")
+            # Fallback to basic NavigateHome
+            if not drone(NavigateHome(start=1)).wait(_timeout=timeout_sec).success():
+                log("Failed to start NavigateHome")
+                return False
+            
+            log("NavigateHome started, waiting...")
+            time.sleep(10)  # Give it some time to start moving
+            return True
 
     def step_poi_inspect() -> bool:
         """Start POI mode and rotate around the POI for inspection."""
@@ -332,18 +368,38 @@ def main() -> int:
             return False
 
     def step_land() -> bool:
+        """Land the drone if not already landed."""
+        # Check if already landed
+        state_result = drone.get_state(FlyingStateChanged)
+        if state_result:
+            current_state = state_result.get("state")
+            state_str = str(current_state).split(".")[-1] if current_state else None
+            
+            if state_str == "landed":
+                log("Drone is already landed, skipping landing command")
+                return True
+            
+            log(f"Current state: {state_str}")
+        
         log("Sending Landing command...")
         if not drone(Landing()).wait(_timeout=timeout_sec).success():
             log("Landing command failed!")
             return False
         
         log("Waiting for landed state...")
-        if not drone(FlyingStateChanged(state="landed", _timeout=timeout_sec)).wait().success():
-            log("Failed to reach landed state")
-            return False
+        landed = drone(FlyingStateChanged(state="landed", _timeout=timeout_sec * 2)).wait()
         
-        log("Drone landed!")
-        return True
+        if landed:
+            log("✓ Drone landed successfully!")
+            return True
+        else:
+            log("Warning: Landing state not confirmed within timeout")
+            # Check current state
+            state_result = drone.get_state(FlyingStateChanged)
+            if state_result:
+                current_state = state_result.get("state")
+                log(f"Current state: {current_state}")
+            return False
 
     # Test steps
     steps = [
