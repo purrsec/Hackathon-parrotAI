@@ -28,6 +28,8 @@ import time
 import logging
 from datetime import datetime
 from natural_language_processor import get_nlp_processor
+from mission_executor import get_drone_identity, execute_mission
+import asyncio
 from mission_executor import get_drone_identity
 
 # ============================================================================
@@ -408,6 +410,88 @@ async def websocket_endpoint(websocket: WebSocket):
                 await websocket.send_json({
                     "type": "error",
                     "message": f"Invalid JSON: {str(e)}",
+                    "timestamp": datetime.now().isoformat()
+                })
+                continue
+            
+            # Contrôle: Confirmation d'exécution de mission (Yes/No)
+            try:
+                message_text = str(payload.get("message", "")).strip().lower()
+                is_confirmation = ("confirm" in payload) or (message_text in ("yes", "no", "oui", "non"))
+                if is_confirmation:
+                    if "id" not in payload:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": "Confirmation requires 'id' of the mission message",
+                            "timestamp": datetime.now().isoformat()
+                        })
+                        continue
+                    confirm_id = str(payload["id"])
+                    pending = pending_missions.get(confirm_id)
+                    if not pending:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": f"No pending mission for id={confirm_id}",
+                            "timestamp": datetime.now().isoformat()
+                        })
+                        continue
+                    # Determine confirmation value
+                    confirm_flag = payload.get("confirm")
+                    if isinstance(confirm_flag, str):
+                        confirm_flag = confirm_flag.strip().lower() in ("yes", "oui", "y", "true", "1")
+                    elif isinstance(confirm_flag, bool):
+                        confirm_flag = bool(confirm_flag)
+                    else:
+                        confirm_flag = message_text in ("yes", "oui", "y")
+                    
+                    if not confirm_flag:
+                        # Cancel mission
+                        pending_missions.pop(confirm_id, None)
+                        await websocket.send_json({
+                            "type": "mission_cancelled",
+                            "id": confirm_id,
+                            "message": "Mission cancelled by user",
+                            "timestamp": datetime.now().isoformat()
+                        })
+                        continue
+                    
+                    # Confirmation accepted → lancer l'exécution en arrière-plan
+                    await websocket.send_json({
+                        "type": "mission_execution_starting",
+                        "id": confirm_id,
+                        "message": "Mission execution started",
+                        "timestamp": datetime.now().isoformat()
+                    })
+                    
+                    mission_to_run = pending_missions.pop(confirm_id)["mission_dsl"]
+                    
+                    async def _run_and_stream():
+                        try:
+                            result = await asyncio.to_thread(execute_mission, mission_to_run, False)
+                            await websocket.send_json({
+                                "type": "mission_execution_result",
+                                "id": confirm_id,
+                                "status": result.get("status", "unknown"),
+                                "report": result,
+                                "timestamp": datetime.now().isoformat()
+                            })
+                        except Exception as exec_err:
+                            logger.error(f"Mission execution error: {exec_err}", exc_info=True)
+                            await websocket.send_json({
+                                "type": "mission_execution_result",
+                                "id": confirm_id,
+                                "status": "error",
+                                "report": {"errors": [str(exec_err)]},
+                                "timestamp": datetime.now().isoformat()
+                            })
+                    
+                    asyncio.create_task(_run_and_stream())
+                    continue
+            except Exception as control_err:
+                logger.error(f"Control handling error: {control_err}", exc_info=True)
+                await websocket.send_json({
+                    "type": "error",
+                    "message": f"Control handling error: {str(control_err)}",
                     "timestamp": datetime.now().isoformat()
                 })
                 continue
