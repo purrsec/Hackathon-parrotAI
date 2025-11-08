@@ -212,24 +212,46 @@ def _segment_poi_inspection(
 
 
 def _segment_return_to_home(drone, timeout_sec: float) -> None:
-    """
-    Return to home using NavigateHome command.
-    Note: NavigateHome API has changed - no longer uses start parameter.
-    """
     logger.info("Segment: return_to_home")
     rth_timeout_sec = float(os.environ.get("RTH_TIMEOUT_SEC", "300"))
     
-    # Use NavigateHome directly - more reliable than rth API
-    from olympe.messages.ardrone3.Piloting import NavigateHome  # type: ignore
-    
-    logger.info("Triggering NavigateHome...")
-    # API changed: NavigateHome() is now called without parameters
-    if not drone(NavigateHome()).wait(_timeout=timeout_sec).success():
-        raise MissionExecutionError("Failed to start NavigateHome")
-    
-    logger.info("NavigateHome started, waiting for completion...")
-    # Give it time to complete RTH
-    time.sleep(5.0)
+    try:
+        from olympe.messages import rth  # type: ignore
+        # Try to set ending behavior first
+        try:
+            if hasattr(rth, "set_ending_behavior"):
+                drone(rth.set_ending_behavior(ending_behavior="landing")).wait(_timeout=timeout_sec)
+                logger.info("RTH ending behavior set to 'landing'")
+        except Exception as e:
+            logger.info(f"Could not set RTH ending behavior: {e}")
+        
+        # Try return_to_home without 'start' parameter first
+        try:
+            if not drone(rth.return_to_home()).wait(_timeout=timeout_sec).success():
+                raise MissionExecutionError("Failed to start RTH via rth.return_to_home()")
+        except (TypeError, KeyError) as e:
+            logger.info(f"rth.return_to_home() failed with {e}, trying with start=1")
+            if not drone(rth.return_to_home(start=1)).wait(_timeout=timeout_sec).success():
+                raise MissionExecutionError("Failed to start RTH via rth.return_to_home")
+        
+        logger.info("RTH started, waiting for completion...")
+        # Wait for RTH completion
+        finished = drone(rth.state(state="available", reason="finished")).wait(_timeout=rth_timeout_sec)
+        if not finished:
+            logger.warning("RTH did not report completion in time")
+    except Exception as e:
+        # Fallback to NavigateHome
+        logger.info(f"rth API not available ({e}); fallback to NavigateHome")
+        from olympe.messages.ardrone3.Piloting import NavigateHome  # type: ignore
+        # NavigateHome also might not need 'start' parameter
+        try:
+            if not drone(NavigateHome(start=1)).wait(_timeout=timeout_sec).success():
+                raise MissionExecutionError("Failed to start NavigateHome with start=1")
+        except (TypeError, KeyError):
+            logger.info("NavigateHome(start=1) failed, trying NavigateHome() without parameters")
+            if not drone(NavigateHome()).wait(_timeout=timeout_sec).success():
+                raise MissionExecutionError("Failed to start NavigateHome")
+        time.sleep(5.0)
 
 
 def _segment_land(drone, Landing, FlyingStateChanged, timeout_sec: float) -> None:

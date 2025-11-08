@@ -52,8 +52,8 @@ class NaturalLanguageProcessor:
 
 Actions (use ONLY these):
 - takeoff: {"type":"takeoff","constraints":{"maxWaitSec":20}}
-- move_to: {"type":"move_to","latitude":48.88,"longitude":2.37,"altitude":55,"max_horizontal_speed":15,"max_vertical_speed":2,"max_yaw_rotation_speed":1}
-- poi_inspection: {"type":"poi_inspection","poi_name":"NAME","latitude":LAT,"longitude":LON,"altitude":60,"rotation_duration":30,"roll_rate":50,"offset_distance":15}
+- move_to: {"type":"move_to","latitude":48.88,"longitude":2.37,"altitude":30,"max_horizontal_speed":15,"max_vertical_speed":2,"max_yaw_rotation_speed":1}
+- poi_inspection: {"type":"poi_inspection","poi_name":"NAME","latitude":LAT,"longitude":LON,"altitude":30,"rotation_duration":30,"roll_rate":50,"offset_distance":15}
 - return_to_home: {"type":"return_to_home"}
 - land: {"type":"land"}
 
@@ -68,13 +68,13 @@ Template:
 Rules:
 1. ONLY use action types: takeoff,move_to,poi_inspection,return_to_home,land
 2. NO orbit/loiter/survey
-3. Use real POI coordinates
+3. Use real POI coordinates from the POI list above
 4. Start with takeoff, end with return_to_home+land
 5. Add move_to before each poi_inspection
 6. Output ONLY valid JSON, no text, NO markdown, NO code fences/backticks
-7. CRITICAL SAFETY: Altitude 55m for move_to, 60m for poi_inspection (safe margin above 30-40m buildings)
-8. Buildings are 30-40m tall - NEVER fly below 50m altitude
-9. For inspection, position drone ABOVE buildings at 55-60m for optimal viewing
+7. CRITICAL SAFETY: Fly at 30m altitude (safe clearance above 15m obstacle box)
+8. Obstacle box max altitude is 15m - NEVER fly below 20m for safety margin
+9. For optimal POI inspection, position drone at 30m altitude with good viewing angle
 """
 		
 		return system_prompt

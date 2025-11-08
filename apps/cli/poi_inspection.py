@@ -371,13 +371,29 @@ def main() -> int:
         log("Triggering Return-To-Home...")
         rth_timeout_sec = float(os.environ.get("RTH_TIMEOUT_SEC", "300"))
         
-        # NavigateHome API has changed - no longer uses start parameter
-        log("Triggering NavigateHome...")
-        if not drone(NavigateHome()).wait(_timeout=timeout_sec).success():
-            log("Failed to start NavigateHome")
-            return False
-        log("NavigateHome started")
-        time.sleep(5.0)
+        try:
+            from olympe.messages import rth  # type: ignore
+            try:
+                if hasattr(rth, "set_ending_behavior"):
+                    drone(rth.set_ending_behavior(ending_behavior="landing")).wait(_timeout=timeout_sec)
+                    log("RTH ending behavior set to 'landing'")
+            except Exception:
+                log("Could not set RTH ending behavior to 'landing' (not supported)")
+            
+            if not drone(rth.return_to_home(start=1)).wait(_timeout=timeout_sec).success():
+                log("Failed to start RTH via rth.return_to_home")
+                return False
+            
+            log("RTH started, waiting for completion...")
+            finished = drone(rth.state(state="available", reason="finished")).wait(_timeout=rth_timeout_sec)
+            if not finished:
+                log("RTH did not report completion in time")
+        except Exception:
+            log("rth API not available; falling back to NavigateHome...")
+            if not drone(NavigateHome(start=1)).wait(_timeout=timeout_sec).success():
+                log("Failed to start NavigateHome")
+                return False
+            time.sleep(5.0)
 
         log("Initiating landing after RTH...")
         land_ok = drone(Landing()).wait(_timeout=timeout_sec * 2).success()
