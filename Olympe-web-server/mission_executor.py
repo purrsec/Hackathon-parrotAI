@@ -48,6 +48,8 @@ def _import_olympe():
             PilotedPOI,
         )
         from olympe.messages.move import extended_move_to  # type: ignore
+        from olympe.messages.obstacle_avoidance import set_mode  # type: ignore
+        from olympe.enums.obstacle_avoidance import mode  # type: ignore
         return {
             "Drone": Drone,
             "TakeOff": TakeOff,
@@ -59,6 +61,8 @@ def _import_olympe():
             "FlyingStateChanged": FlyingStateChanged,
             "PilotedPOI": PilotedPOI,
             "extended_move_to": extended_move_to,
+            "set_mode": set_mode,
+            "oa_mode": mode,
         }
     except Exception as exc:  # noqa: BLE001
         raise MissionExecutionError(
@@ -104,7 +108,21 @@ def _validate_mission_dsl(mission: Dict[str, Any]) -> Tuple[List[Dict[str, Any]]
     return segments, safety
 
 
-def _connect_and_prepare(drone, FlyingStateChanged, timeout_sec: float) -> None:
+def _enable_obstacle_avoidance(drone, set_mode, oa_mode, timeout_sec: float) -> None:
+    """
+    Enable obstacle avoidance in standard mode.
+    The drone will automatically adjust its trajectory to avoid obstacles.
+    """
+    logger.info("Enabling obstacle avoidance (standard mode)...")
+    result = drone(set_mode(mode=oa_mode.standard)).wait(_timeout=timeout_sec)
+    if not result.success():
+        logger.warning(f"Failed to enable obstacle avoidance: {result.explain()}")
+        logger.warning("Continuing without obstacle avoidance")
+    else:
+        logger.info("✓ Obstacle avoidance enabled - drone will auto-correct trajectory")
+
+
+def _connect_and_prepare(drone, FlyingStateChanged, set_mode, oa_mode, timeout_sec: float) -> None:
     # Connect
     drone_ip = os.environ.get("DRONE_IP", "10.202.0.1")
     logger.info(f"Connecting to drone at {drone_ip} ...")
@@ -117,6 +135,8 @@ def _connect_and_prepare(drone, FlyingStateChanged, timeout_sec: float) -> None:
         raise MissionExecutionError("Drone not ready (flying state unavailable)")
     state = drone.get_state(FlyingStateChanged)
     logger.info(f"Initial flying state: {state}")
+    # Enable obstacle avoidance
+    _enable_obstacle_avoidance(drone, set_mode, oa_mode, timeout_sec)
 
 
 def _wait_hover(drone, FlyingStateChanged, timeout_sec: float) -> bool:
@@ -321,6 +341,8 @@ def execute_mission(mission_dsl: Dict[str, Any], dry_run: bool = False) -> Dict[
     FlyingStateChanged = symbols["FlyingStateChanged"]
     PilotedPOI = symbols["PilotedPOI"]
     extended_move_to = symbols["extended_move_to"]
+    set_mode = symbols["set_mode"]
+    oa_mode = symbols["oa_mode"]
     # Timeouts and params
     timeout_sec = float(os.environ.get("TIMEOUT_SEC", "25"))
     move_timeout_sec = float(os.environ.get("MOVE_TIMEOUT_SEC", "120"))
@@ -345,7 +367,7 @@ def execute_mission(mission_dsl: Dict[str, Any], dry_run: bool = False) -> Dict[
         if dry_run:
             logger.info("[DRY RUN] Skipping Olympe connection and commands")
         else:
-            _connect_and_prepare(drone, FlyingStateChanged, timeout_sec)
+            _connect_and_prepare(drone, FlyingStateChanged, set_mode, oa_mode, timeout_sec)
             connected = True
         for idx, segment in enumerate(segments):
             seg_type = str(segment.get("type", "")).strip()
