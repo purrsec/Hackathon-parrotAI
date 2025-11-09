@@ -6,8 +6,12 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.121.0",
+    "httpx>=0.28.1",
     "openai>=2.7.1",
+    "parrot-olympe>=7.7.5",
+    "pydantic>=2.12.4",
     "python-dotenv>=1.2.1",
+    "python-multipart>=0.0.20",
     "requests>=2.32.5",
     "uvicorn>=0.38.0",
     "websockets>=15.0.1",
