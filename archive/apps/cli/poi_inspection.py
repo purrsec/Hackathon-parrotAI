@@ -2,7 +2,8 @@ import os
 import sys
 import time
 import math
-from typing import Callable
+import threading
+from typing import Callable, Optional
 
 # Exit codes
 EXIT_SUCCESS = 0
@@ -28,6 +29,133 @@ def with_step(name: str, fn: Callable[[], bool]) -> bool:
         log(f"EXCEPTION in {name}: {exc}")
         return False
 
+
+def enable_obstacle_avoidance(drone) -> bool:
+    """
+    Enable obstacle avoidance on the drone.
+    """
+    try:
+        from olympe.messages.obstacle_avoidance import set_mode, status, alerts  # type: ignore
+        from olympe.enums.obstacle_avoidance import mode  # type: ignore
+    except Exception as exc:  # noqa: BLE001
+        log(f"Obstacle avoidance imports failed: {exc}")
+        return False
+
+    log("Enabling obstacle avoidance...")
+
+    result = drone(set_mode(mode=mode.standard)).wait(_timeout=5)
+    if not result.success():
+        log(f"Failed to enable obstacle avoidance: {result.explain()}")
+        return False
+
+    log("✓ Obstacle avoidance enabled")
+
+    try:
+        oa_status = drone.get_state(status)
+        if oa_status:
+            mode_name = oa_status.get("mode")
+            state_name = oa_status.get("state")
+            availability_name = oa_status.get("availability")
+            log(f"Obstacle avoidance mode: {getattr(mode_name, 'name', mode_name)}")
+            log(f"Obstacle avoidance state: {getattr(state_name, 'name', state_name)}")
+            log(f"Obstacle avoidance availability: {getattr(availability_name, 'name', availability_name)}")
+
+        oa_alerts = drone.get_state(alerts)
+        if oa_alerts and oa_alerts.get("alerts", 0) != 0:
+            log(f"⚠ Obstacle avoidance alerts active: {oa_alerts['alerts']}")
+        else:
+            log("No obstacle avoidance alerts")
+    except Exception as status_exc:  # noqa: BLE001
+        log(f"Obstacle avoidance status check failed: {status_exc}")
+
+    return True
+
+
+def disable_obstacle_avoidance(drone) -> bool:
+    """
+    Disable obstacle avoidance on the drone.
+    """
+    try:
+        from olympe.messages.obstacle_avoidance import set_mode  # type: ignore
+        from olympe.enums.obstacle_avoidance import mode  # type: ignore
+    except Exception as exc:  # noqa: BLE001
+        log(f"Obstacle avoidance imports failed: {exc}")
+        return False
+
+    log("Disabling obstacle avoidance...")
+
+    result = drone(set_mode(mode=mode.disabled)).wait(_timeout=5)
+    if result.success():
+        log("✓ Obstacle avoidance disabled")
+        return True
+
+    log(f"Failed to disable obstacle avoidance: {result.explain()}")
+    return False
+
+
+def monitor_obstacle_avoidance(drone, stop_event: Optional[threading.Event] = None) -> None:
+    """
+    Monitor obstacle avoidance alerts during flight.
+    """
+    try:
+        from olympe.messages.obstacle_avoidance import alerts  # type: ignore
+        from olympe.enums.obstacle_avoidance import alert  # type: ignore
+    except Exception as exc:  # noqa: BLE001
+        log(f"Obstacle avoidance monitoring imports failed: {exc}")
+        return
+
+    log("Monitoring obstacle avoidance...")
+
+    def alert_callback(event, scheduler):
+        """Callback to handle obstacle avoidance alerts."""
+        alert_bitfield = event.args.get("alerts", 0)
+
+        if alert_bitfield == 0:
+            log("  ✓ No obstacles detected")
+            return
+
+        log("  ⚠ OBSTACLE ALERT!")
+
+        def _has(flag):
+            return bool(alert_bitfield & (1 << flag.value))
+
+        if _has(alert.high_deviation):
+            log("    - High deviation from trajectory")
+        if _has(alert.stuck):
+            log("    - Drone is stuck by obstacle")
+        if _has(alert.stereo_failure):
+            log("    - Stereo camera failure")
+        if _has(alert.too_dark):
+            log("    - Too dark for obstacle detection")
+        if _has(alert.poor_gps):
+            log("    - Poor GPS (degraded mode)")
+        if _has(alert.strong_wind):
+            log("    - Strong wind (degraded mode)")
+        if _has(alert.blind_motion_direction):
+            log("    - Blind in current direction")
+        if _has(alert.freeze):
+            log("    - DRONE FROZEN! Disable OA to move")
+
+    subscription = None
+    try:
+        subscription = drone.subscribe(alert_callback, alerts())
+        while True:
+            if stop_event:
+                if stop_event.wait(timeout=1.0):
+                    break
+            else:
+                time.sleep(1.0)
+    except Exception as exc:  # noqa: BLE001
+        log(f"Obstacle avoidance monitoring error: {exc}")
+    finally:
+        try:
+            if subscription is not None:
+                drone.unsubscribe(subscription)
+            else:
+                drone.unsubscribe(alert_callback, alerts())
+        except Exception:  # noqa: BLE001
+            pass
+        log("Obstacle avoidance monitoring stopped")
 
 def main() -> int:
     try:
@@ -85,6 +213,9 @@ def main() -> int:
     drone = Drone(drone_ip)
     connected = False
     connection_failed = False
+    monitor_stop_event: Optional[threading.Event] = None
+    monitor_thread: Optional[threading.Thread] = None
+    obstacle_avoidance_enabled = False
 
     def step_connect() -> bool:
         nonlocal connected, connection_failed
@@ -158,6 +289,47 @@ def main() -> int:
         
         log("⚠ Could not verify drone is safely landed, but continuing with caution...")
         return True
+
+    def stop_obstacle_monitor() -> None:
+        nonlocal monitor_stop_event, monitor_thread
+        if monitor_stop_event:
+            monitor_stop_event.set()
+        if monitor_thread:
+            monitor_thread.join(timeout=5.0)
+        monitor_stop_event = None
+        monitor_thread = None
+
+    def step_enable_obstacle_avoidance() -> bool:
+        nonlocal monitor_stop_event, monitor_thread, obstacle_avoidance_enabled
+        if not enable_obstacle_avoidance(drone):
+            return False
+        stop_obstacle_monitor()
+        try:
+            monitor_stop_event = threading.Event()
+            monitor_thread = threading.Thread(
+                target=monitor_obstacle_avoidance,
+                args=(drone, monitor_stop_event),
+                name="ObstacleAvoidanceMonitor",
+                daemon=True,
+            )
+            monitor_thread.start()
+        except Exception as exc:  # noqa: BLE001
+            monitor_stop_event = None
+            monitor_thread = None
+            log(f"Obstacle avoidance monitor start failed: {exc}")
+        obstacle_avoidance_enabled = True
+        return True
+
+    def step_disable_obstacle_avoidance() -> bool:
+        nonlocal obstacle_avoidance_enabled
+        stop_obstacle_monitor()
+        if not obstacle_avoidance_enabled:
+            log("Obstacle avoidance already disabled")
+            return True
+        if disable_obstacle_avoidance(drone):
+            obstacle_avoidance_enabled = False
+            return True
+        return False
 
     def step_takeoff_hover() -> bool:
         log("Sending TakeOff command...")
@@ -413,6 +585,7 @@ def main() -> int:
         ("connect", step_connect),
         ("wait_ready", step_wait_ready),
         ("ensure_landed", step_ensure_landed),
+        ("enable_obstacle_avoidance", step_enable_obstacle_avoidance),
         ("takeoff_hover", step_takeoff_hover),
         ("move_to_midpoint", step_move_to_midpoint),
         ("move_to_ventilation_pipes", step_move_to_ventilation_pipes),
@@ -420,6 +593,7 @@ def main() -> int:
         ("move_to_advertising_board", step_move_to_advertising_board),
         ("poi_inspect_advertising_board", step_poi_inspect_advertising_board),
         ("rth_and_land", step_rth_and_land),
+        ("disable_obstacle_avoidance", step_disable_obstacle_avoidance),
     ]
 
     overall_ok = True
@@ -453,6 +627,14 @@ def main() -> int:
             except Exception as e:
                 log(f"❌ Emergency landing failed: {e}")
                 log("⚠️  MANUAL INTERVENTION REQUIRED - DRONE MAY BE AIRBORNE!")
+
+        stop_obstacle_monitor()
+        try:
+            if obstacle_avoidance_enabled:
+                if disable_obstacle_avoidance(drone):
+                    obstacle_avoidance_enabled = False
+        except Exception as exc:  # noqa: BLE001
+            log(f"Obstacle avoidance disable during cleanup failed: {exc}")
         
         if connected:
             try:
