@@ -27,6 +27,56 @@
       "description": "Advertising board at 19m height"
     },
     {
+      "name": "Charles Dr & Robson St Junction",
+      "type": "intersection",
+      "coordinates": {
+        "latitude": 48.87827241516113,
+        "longitude": 2.368639884233475,
+        "altitude_meters": 1.0
+      },
+      "description": "Intersection between Charles Dr and Robson St"
+    },
+    {
+      "name": "Davis Blvd & Robson St Junction",
+      "type": "intersection",
+      "coordinates": {
+        "latitude": 48.878678436279294,
+        "longitude": 2.3680219955444337,
+        "altitude_meters": 1.0
+      },
+      "description": "Intersection between Davis Blvd and Robson St"
+    },
+    {
+      "name": "Main Ave & Dewedney Rd Junction",
+      "type": "intersection",
+      "coordinates": {
+        "latitude": 48.879093460083006,
+        "longitude": 2.366950579285622,
+        "altitude_meters": 1.0
+      },
+      "description": "Intersection between Main Ave and Dewedney Rd"
+    },
+    {
+      "name": "Main Ave & Francis St Junction",
+      "type": "intersection",
+      "coordinates": {
+        "latitude": 48.87866763305664,
+        "longitude": 2.3669567172527315,
+        "altitude_meters": 1.0
+      },
+      "description": "Intersection between Main Ave and Francis St"
+    },
+    {
+      "name": "Main Ave & Hastings Drv Junction",
+      "type": "intersection",
+      "coordinates": {
+        "latitude": 48.87950938415528,
+        "longitude": 2.3669608092308043,
+        "altitude_meters": 1.0
+      },
+      "description": "Intersection between Main Ave and Hastings Drv"
+    },
+    {
       "name": "Ventilation Pipes",
       "type": "structure",
       "coordinates": {
